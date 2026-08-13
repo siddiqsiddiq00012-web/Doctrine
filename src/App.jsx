@@ -2,6 +2,7 @@ import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { TodayView } from './components/TodayView';
 import { WeekView } from './components/WeekView';
+import { ProfileView } from './components/ProfileView';
 import { TrainingView } from './components/TrainingView';
 import { NutritionCareView } from './components/NutritionCareView';
 import { InventoryView } from './components/InventoryView';
@@ -9,10 +10,10 @@ import { DataEngineeringView } from './components/DataEngineeringView';
 import { SettingsView } from './components/SettingsView';
 import { LoginView } from './components/LoginView';
 import { Navbar } from './components/Navbar';
-import { ShieldCheck, LogOut, User as UserIcon, Settings } from 'lucide-react';
+import { ShieldCheck, LogOut, User as UserIcon } from 'lucide-react';
 
 const MainContent = () => {
-  const { user, loadingAuth, logout, activeTab, setActiveTab, userPreferences } = useApp();
+  const { user, loadingAuth, logout, activeTab, setActiveTab, userPreferences, activeAvatarUrl } = useApp();
 
   if (loadingAuth) {
     return (
@@ -39,6 +40,7 @@ const MainContent = () => {
     switch (activeTab) {
       case 'today': return <TodayView />;
       case 'week': return <WeekView />;
+      case 'profile': return <ProfileView />;
       case 'training': return <TrainingView />;
       case 'nutrition': return <NutritionCareView />;
       case 'inventory': return <InventoryView />;
@@ -72,7 +74,7 @@ const MainContent = () => {
         {/* AUTHENTICATED USER BAR */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button
-            onClick={() => setActiveTab('settings')}
+            onClick={() => setActiveTab('profile')}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -84,13 +86,13 @@ const MainContent = () => {
               borderRadius: '8px',
               transition: 'background-color 0.15s ease'
             }}
-            title="Open Profile & Settings"
+            title="Open Profile"
           >
-            {user.avatarUrl ? (
+            {activeAvatarUrl ? (
               <img
-                src={user.avatarUrl}
+                src={activeAvatarUrl}
                 alt={displayName}
-                style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid var(--border-color)' }}
+                style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid var(--border-color)', objectFit: 'cover' }}
               />
             ) : (
               <UserIcon size={20} color="var(--text-secondary)" />

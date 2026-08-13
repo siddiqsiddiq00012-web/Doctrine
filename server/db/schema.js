@@ -17,10 +17,12 @@ export const users = sqliteTable('users', {
   emailIdx: index('users_email_idx').on(table.email),
 }));
 
-// User Preferences Table (Application Level Customizations)
+// User Preferences Table (Application Level Customizations & Personal Profile Data)
 export const userPreferences = sqliteTable('user_preferences', {
   userId: text('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
   customDisplayName: text('custom_display_name'),
+  bio: text('bio').default(''),
+  customAvatarUrl: text('custom_avatar_url'),
   theme: text('theme').default('light').notNull(), // 'light' | 'dark' | 'system'
   timeFormat: text('time_format').default('12h').notNull(), // '12h' | '24h'
   weekStart: text('week_start').default('MONDAY').notNull(), // 'MONDAY' | 'SUNDAY'

@@ -21,6 +21,8 @@ router.get('/preferences', requireAuth, async (req, res) => {
       return res.json({
         userId,
         customDisplayName: req.user.displayName,
+        bio: '',
+        customAvatarUrl: null,
         theme: 'light',
         timeFormat: '12h',
         weekStart: 'MONDAY',
@@ -30,6 +32,8 @@ router.get('/preferences', requireAuth, async (req, res) => {
     res.json({
       userId: prefs.userId,
       customDisplayName: prefs.customDisplayName || req.user.displayName,
+      bio: prefs.bio || '',
+      customAvatarUrl: prefs.customAvatarUrl || null,
       theme: prefs.theme || 'light',
       timeFormat: prefs.timeFormat || '12h',
       weekStart: prefs.weekStart || 'MONDAY',
@@ -40,15 +44,23 @@ router.get('/preferences', requireAuth, async (req, res) => {
   }
 });
 
-// PUT /api/user/preferences
-router.put('/preferences', requireAuth, async (req, res) => {
+// Update Handler (Supports both PUT and POST)
+const handleUpdatePreferences = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { customDisplayName, theme, timeFormat, weekStart } = req.body;
+    const { customDisplayName, bio, customAvatarUrl, theme, timeFormat, weekStart } = req.body;
 
     const allowedThemes = ['light', 'dark', 'system'];
     const allowedTimeFormats = ['12h', '24h'];
     const allowedWeekStarts = ['MONDAY', 'SUNDAY'];
+
+    // Bio validation (max 160 characters)
+    if (bio !== undefined && typeof bio === 'string' && bio.length > 160) {
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: 'Bio cannot exceed 160 characters'
+      });
+    }
 
     const nowIso = new Date().toISOString();
 
@@ -57,6 +69,8 @@ router.put('/preferences', requireAuth, async (req, res) => {
     };
 
     if (customDisplayName !== undefined) updatePayload.customDisplayName = String(customDisplayName).trim();
+    if (bio !== undefined) updatePayload.bio = String(bio).trim();
+    if (customAvatarUrl !== undefined) updatePayload.customAvatarUrl = customAvatarUrl ? String(customAvatarUrl).trim() : null;
     if (theme && allowedThemes.includes(theme)) updatePayload.theme = theme;
     if (timeFormat && allowedTimeFormats.includes(timeFormat)) updatePayload.timeFormat = timeFormat;
     if (weekStart && allowedWeekStarts.includes(weekStart)) updatePayload.weekStart = weekStart;
@@ -76,6 +90,8 @@ router.put('/preferences', requireAuth, async (req, res) => {
       await db.insert(userPreferences).values({
         userId,
         customDisplayName: updatePayload.customDisplayName || req.user.displayName,
+        bio: updatePayload.bio || '',
+        customAvatarUrl: updatePayload.customAvatarUrl || null,
         theme: updatePayload.theme || 'light',
         timeFormat: updatePayload.timeFormat || '12h',
         weekStart: updatePayload.weekStart || 'MONDAY',
@@ -95,6 +111,8 @@ router.put('/preferences', requireAuth, async (req, res) => {
       preferences: {
         userId: updated.userId,
         customDisplayName: updated.customDisplayName || req.user.displayName,
+        bio: updated.bio || '',
+        customAvatarUrl: updated.customAvatarUrl || null,
         theme: updated.theme || 'light',
         timeFormat: updated.timeFormat || '12h',
         weekStart: updated.weekStart || 'MONDAY',
@@ -104,6 +122,10 @@ router.put('/preferences', requireAuth, async (req, res) => {
     console.error('Error updating user preferences:', error);
     res.status(500).json({ error: 'Failed to save preferences' });
   }
-});
+};
+
+// PUT /api/user/preferences & POST /api/user/preferences
+router.put('/preferences', requireAuth, handleUpdatePreferences);
+router.post('/preferences', requireAuth, handleUpdatePreferences);
 
 export default router;

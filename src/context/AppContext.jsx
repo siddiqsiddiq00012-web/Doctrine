@@ -11,6 +11,19 @@ export const useApp = () => {
   return context;
 };
 
+// Safe JSON Response Helper preventing "Unexpected token < in JSON" syntax errors
+async function safeJsonParse(res) {
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return await res.json();
+  }
+  const text = await res.text();
+  if (res.status === 404) {
+    throw new Error(`Endpoint not found (404). Please restart your backend server using "npm run server".`);
+  }
+  throw new Error(`Server error (${res.status}): ${text.substring(0, 100)}`);
+}
+
 export const AppProvider = ({ children }) => {
   const getTodayStr = () => {
     const today = new Date();
@@ -22,9 +35,11 @@ export const AppProvider = ({ children }) => {
   const [activeTab, setActiveTab] = useState('today');
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
 
-  // User Preferences State
+  // User Preferences & Personal Profile State
   const [userPreferences, setUserPreferences] = useState({
     customDisplayName: '',
+    bio: '',
+    customAvatarUrl: null,
     theme: 'light',
     timeFormat: '12h',
     weekStart: 'MONDAY',
@@ -83,7 +98,7 @@ export const AppProvider = ({ children }) => {
     try {
       const res = await fetch('/api/user/preferences', { credentials: 'include' });
       if (res.ok) {
-        const data = await res.json();
+        const data = await safeJsonParse(res);
         setUserPreferences(data);
       }
     } catch (e) {
@@ -101,12 +116,12 @@ export const AppProvider = ({ children }) => {
         body: JSON.stringify(newPrefs)
       });
       if (res.ok) {
-        const data = await res.json();
+        const data = await safeJsonParse(res);
         setUserPreferences(data.preferences);
         return { success: true };
       } else {
-        const errData = await res.json();
-        return { success: false, error: errData.error || 'Save failed' };
+        const errData = await safeJsonParse(res);
+        return { success: false, error: errData.message || errData.error || 'Save failed' };
       }
     } catch (e) {
       console.error('Error saving user preferences:', e);
@@ -119,7 +134,7 @@ export const AppProvider = ({ children }) => {
     try {
       const res = await fetch('/api/auth/me', { credentials: 'include' });
       if (res.ok) {
-        const data = await res.json();
+        const data = await safeJsonParse(res);
         if (data.authenticated && data.user) {
           setUser(data.user);
           fetchUserPreferences();
@@ -141,6 +156,9 @@ export const AppProvider = ({ children }) => {
     checkAuth();
   }, [checkAuth]);
 
+  // Active Avatar URL Helper
+  const activeAvatarUrl = userPreferences.customAvatarUrl || user?.avatarUrl || '';
+
   // Apply Theme Attribute to DOM
   useEffect(() => {
     const activeTheme = userPreferences.theme || 'light';
@@ -160,7 +178,7 @@ export const AppProvider = ({ children }) => {
     try {
       const res = await fetch(`/api/history/${dateStr}`, { credentials: 'include' });
       if (res.ok) {
-        const data = await res.json();
+        const data = await safeJsonParse(res);
         const { execution, tasks } = data;
 
         const completedTasks = {};
@@ -216,7 +234,6 @@ export const AppProvider = ({ children }) => {
   const formatTimeDisplay = (timeString) => {
     if (!timeString) return '';
     if (userPreferences.timeFormat === '24h') {
-      // Convert "06:00 AM" to "06:00"
       const match = timeString.match(/(\d+):(\d+)\s*(AM|PM)?/i);
       if (match) {
         let hours = parseInt(match[1], 10);
@@ -433,6 +450,7 @@ export const AppProvider = ({ children }) => {
       logout,
       userPreferences,
       updateUserPreferences,
+      activeAvatarUrl,
       formatTimeDisplay,
       activeTab,
       setActiveTab,

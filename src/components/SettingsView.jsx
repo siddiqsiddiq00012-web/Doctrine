@@ -11,12 +11,8 @@ import {
   Moon,
   Sun,
   Monitor,
-  Clock,
-  Calendar,
   Sparkles,
-  Edit2,
   Save,
-  X,
   AlertCircle
 } from 'lucide-react';
 
@@ -26,6 +22,7 @@ export const SettingsView = () => {
     logout,
     userPreferences,
     updateUserPreferences,
+    activeAvatarUrl,
     exportData,
     importData
   } = useApp();
@@ -33,21 +30,23 @@ export const SettingsView = () => {
   const fileInputRef = useRef(null);
 
   // Active section inside Settings
-  const [activeSection, setActiveSection] = useState('profile'); // 'profile' | 'appearance' | 'data' | 'account' | 'reference'
+  const [activeSection, setActiveSection] = useState('profile');
 
   // Edit form state
   const [customName, setCustomName] = useState('');
+  const [bio, setBio] = useState('');
   const [theme, setTheme] = useState('light');
   const [timeFormat, setTimeFormat] = useState('12h');
   const [weekStart, setWeekStart] = useState('MONDAY');
 
   const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState(null); // { type: 'success' | 'error', message: string }
+  const [saveStatus, setSaveStatus] = useState(null);
 
   // Sync state with userPreferences
   useEffect(() => {
     if (userPreferences) {
       setCustomName(userPreferences.customDisplayName || user?.displayName || '');
+      setBio(userPreferences.bio || '');
       setTheme(userPreferences.theme || 'light');
       setTimeFormat(userPreferences.timeFormat || '12h');
       setWeekStart(userPreferences.weekStart || 'MONDAY');
@@ -56,11 +55,18 @@ export const SettingsView = () => {
 
   const handleSavePreferences = async (e) => {
     e.preventDefault();
+
+    if (bio.length > 160) {
+      setSaveStatus({ type: 'error', message: 'Bio cannot exceed 160 characters' });
+      return;
+    }
+
     setSaving(true);
     setSaveStatus(null);
 
     const result = await updateUserPreferences({
       customDisplayName: customName,
+      bio,
       theme,
       timeFormat,
       weekStart
@@ -92,13 +98,13 @@ export const SettingsView = () => {
   return (
     <div className="settings-view" style={{ maxWidth: '840px', margin: '0 auto' }}>
       
-      {/* 1. HERO USER PROFILE CARD */}
+      {/* 1. HERO USER PROFILE CARD (CLEAN: NO GOOGLE VERIFIED BADGE, NO DOCTRINE METRICS) */}
       <div className="card" style={{ padding: '24px', marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
           <div style={{ position: 'relative' }}>
-            {user?.avatarUrl ? (
+            {activeAvatarUrl ? (
               <img
-                src={user.avatarUrl}
+                src={activeAvatarUrl}
                 alt={user.displayName}
                 style={{
                   width: '72px',
@@ -127,21 +133,22 @@ export const SettingsView = () => {
           <div style={{ flex: 1, minWidth: '220px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <h2 style={{ fontSize: '22px', fontWeight: 800, letterSpacing: '-0.5px', color: 'var(--text-primary)' }}>
-                {userPreferences?.customDisplayName || user?.displayName || 'Doctrine Member'}
+                {userPreferences?.customDisplayName || user?.displayName || 'Personal Account'}
               </h2>
-              <span className="badge badge-success" style={{ fontSize: '11px', padding: '2px 8px' }}>
-                Google Verified
-              </span>
             </div>
 
             <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '2px' }}>
               {user?.email}
             </p>
 
+            {userPreferences?.bio && (
+              <p style={{ fontSize: '13px', color: 'var(--text-primary)', marginTop: '6px', fontStyle: 'italic' }}>
+                "{userPreferences.bio}"
+              </p>
+            )}
+
             <div style={{ display: 'flex', gap: '16px', marginTop: '8px', fontSize: '12px', color: 'var(--text-tertiary)' }}>
               <span>Joined: <strong>{formattedJoinDate}</strong></span>
-              <span>•</span>
-              <span>Account ID: <code style={{ fontSize: '11px' }}>{user?.id?.substring(0, 8)}...</code></span>
             </div>
           </div>
         </div>
@@ -157,8 +164,7 @@ export const SettingsView = () => {
         scrollbarWidth: 'none'
       }}>
         {[
-          { id: 'profile', label: 'Personal Profile', icon: UserIcon },
-          { id: 'appearance', label: 'Appearance & Schedule', icon: Sun },
+          { id: 'profile', label: 'Personal Preferences', icon: UserIcon },
           { id: 'data', label: 'Data & Privacy', icon: Download },
           { id: 'account', label: 'Account & Security', icon: Shield },
           { id: 'reference', label: 'Doctrine Reference', icon: Sparkles }
@@ -207,12 +213,12 @@ export const SettingsView = () => {
         </div>
       )}
 
-      {/* 3. SECTION 1: PERSONAL PROFILE */}
+      {/* 3. SECTION 1: PERSONAL PREFERENCES */}
       {activeSection === 'profile' && (
         <div className="card" style={{ padding: '24px' }}>
           <div className="card-title" style={{ marginBottom: '16px' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <UserIcon size={18} color="var(--accent-blue)" /> Personal Profile Preferences
+              <UserIcon size={18} color="var(--accent-blue)" /> Personal Preferences
             </span>
           </div>
 
@@ -230,148 +236,29 @@ export const SettingsView = () => {
                 style={{ width: '100%', padding: '10px 14px', fontSize: '14px', borderRadius: '8px' }}
                 required
               />
-              <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '4px', display: 'block' }}>
-                This is your application-level preferred name. Your official Google account name ({user?.displayName}) remains unchanged.
-              </span>
             </div>
 
-            <div style={{ marginBottom: '20px', padding: '14px', borderRadius: '10px', backgroundColor: 'var(--bg-card-subtle)', border: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                Google Identity Information (Read-Only)
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  Personal Bio
+                </label>
+                <span style={{ fontSize: '12px', color: bio.length > 160 ? 'var(--accent-red)' : 'var(--text-tertiary)' }}>
+                  {bio.length} / 160
+                </span>
               </div>
-              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                Email: <strong>{user?.email}</strong>
-              </div>
-              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Provider Subject ID: <code style={{ fontSize: '11px' }}>{user?.googleId || user?.id}</code>
-              </div>
+              <textarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                maxLength={160}
+                rows={3}
+                placeholder="Building my future one system at a time."
+                className="form-input"
+                style={{ width: '100%', padding: '10px 14px', fontSize: '14px', borderRadius: '8px', resize: 'none', fontFamily: 'inherit' }}
+              />
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-              <button type="submit" className="btn btn-primary" disabled={saving} style={{ padding: '10px 20px', fontSize: '14px' }}>
-                {saving ? 'Saving...' : <><Save size={15} /> Save Profile</>}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* 4. SECTION 2: APPEARANCE & SCHEDULE */}
-      {activeSection === 'appearance' && (
-        <div className="card" style={{ padding: '24px' }}>
-          <div className="card-title" style={{ marginBottom: '16px' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Sun size={18} color="var(--accent-amber)" /> Appearance & Schedule Preferences
-            </span>
-          </div>
-
-          <form onSubmit={handleSavePreferences}>
-            {/* Theme Selector */}
-            <div style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                Interface Theme
-              </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
-                {[
-                  { id: 'light', label: 'Light', icon: Sun },
-                  { id: 'dark', label: 'Dark', icon: Moon },
-                  { id: 'system', label: 'System', icon: Monitor }
-                ].map((item) => {
-                  const Icon = item.icon;
-                  const selected = theme === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setTheme(item.id)}
-                      style={{
-                        padding: '16px 12px',
-                        borderRadius: '12px',
-                        border: selected ? '2px solid var(--accent-blue)' : '1px solid var(--border-color)',
-                        backgroundColor: selected ? 'var(--accent-blue-subtle)' : 'var(--bg-card-subtle)',
-                        color: selected ? 'var(--accent-blue)' : 'var(--text-primary)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '8px',
-                        cursor: 'pointer',
-                        fontWeight: selected ? 700 : 500,
-                        transition: 'all 0.15s ease'
-                      }}
-                    >
-                      <Icon size={22} />
-                      <span style={{ fontSize: '13px' }}>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Time Format */}
-            <div style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                Time Display Format
-              </label>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                {[
-                  { id: '12h', label: '12-Hour (06:00 AM / PM)' },
-                  { id: '24h', label: '24-Hour (06:00 / 18:00)' }
-                ].map((tf) => (
-                  <button
-                    key={tf.id}
-                    type="button"
-                    onClick={() => setTimeFormat(tf.id)}
-                    style={{
-                      flex: 1,
-                      padding: '12px',
-                      borderRadius: '10px',
-                      border: timeFormat === tf.id ? '2px solid var(--accent-blue)' : '1px solid var(--border-color)',
-                      backgroundColor: timeFormat === tf.id ? 'var(--accent-blue-subtle)' : 'var(--bg-card-subtle)',
-                      color: timeFormat === tf.id ? 'var(--accent-blue)' : 'var(--text-primary)',
-                      fontSize: '13px',
-                      fontWeight: timeFormat === tf.id ? 700 : 500,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {tf.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Week Start */}
-            <div style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                Week Start Day
-              </label>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                {[
-                  { id: 'MONDAY', label: 'Monday (Doctrine Standard)' },
-                  { id: 'SUNDAY', label: 'Sunday' }
-                ].map((ws) => (
-                  <button
-                    key={ws.id}
-                    type="button"
-                    onClick={() => setWeekStart(ws.id)}
-                    style={{
-                      flex: 1,
-                      padding: '12px',
-                      borderRadius: '10px',
-                      border: weekStart === ws.id ? '2px solid var(--accent-blue)' : '1px solid var(--border-color)',
-                      backgroundColor: weekStart === ws.id ? 'var(--accent-blue-subtle)' : 'var(--bg-card-subtle)',
-                      color: weekStart === ws.id ? 'var(--accent-blue)' : 'var(--text-primary)',
-                      fontSize: '13px',
-                      fontWeight: weekStart === ws.id ? 700 : 500,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {ws.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button type="submit" className="btn btn-primary" disabled={saving} style={{ padding: '10px 20px', fontSize: '14px' }}>
                 {saving ? 'Saving...' : <><Save size={15} /> Save Preferences</>}
               </button>
@@ -380,14 +267,13 @@ export const SettingsView = () => {
         </div>
       )}
 
-      {/* 5. SECTION 3: DATA & PRIVACY */}
+      {/* 4. SECTION 2: DATA & PRIVACY */}
       {activeSection === 'data' && (
         <div className="card" style={{ padding: '24px' }}>
           <div className="card-title">
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Download size={18} color="var(--accent-blue)" /> Data Backup & Privacy Control
             </span>
-            <span className="badge badge-success">Zero Data Loss</span>
           </div>
           <div className="card-subtitle" style={{ marginTop: '4px' }}>
             Export your entire Doctrine tracking database to JSON or import from another device.
@@ -416,7 +302,7 @@ export const SettingsView = () => {
         </div>
       )}
 
-      {/* 6. SECTION 4: ACCOUNT & SECURITY */}
+      {/* 5. SECTION 3: ACCOUNT & SECURITY */}
       {activeSection === 'account' && (
         <div className="card" style={{ padding: '24px' }}>
           <div className="card-title" style={{ marginBottom: '16px' }}>
@@ -467,7 +353,7 @@ export const SettingsView = () => {
         </div>
       )}
 
-      {/* 7. SECTION 5: DOCTRINE REFERENCE */}
+      {/* 6. SECTION 4: DOCTRINE REFERENCE */}
       {activeSection === 'reference' && (
         <>
           <div className="card" style={{ padding: '24px', marginBottom: '16px' }}>

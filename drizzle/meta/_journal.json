@@ -15,6 +15,13 @@
       "when": 1786633722622,
       "tag": "0001_useful_donald_blake",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786635704057,
+      "tag": "0002_clumsy_magma",
+      "breakpoints": true
     }
   ]
 }

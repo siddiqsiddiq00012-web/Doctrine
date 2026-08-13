@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { CheckSquare, Calendar, Dumbbell, Sparkles, Package, Terminal, Settings } from 'lucide-react';
+import { CheckSquare, Calendar, User, Dumbbell, Sparkles, Package, Terminal, Settings } from 'lucide-react';
 
 export const Navbar = () => {
   const { activeTab, setActiveTab } = useApp();
@@ -8,6 +8,7 @@ export const Navbar = () => {
   const navItems = [
     { id: 'today', label: 'Today', icon: CheckSquare },
     { id: 'week', label: 'Week', icon: Calendar },
+    { id: 'profile', label: 'Profile', icon: User },
     { id: 'training', label: 'Training', icon: Dumbbell },
     { id: 'nutrition', label: 'Care & Food', icon: Sparkles },
     { id: 'inventory', label: 'Inventory', icon: Package },
