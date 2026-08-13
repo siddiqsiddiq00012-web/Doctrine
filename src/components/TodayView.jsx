@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { WEEKLY_DOCTRINE, NON_NEGOTIABLE_RULES, ACTIVE_INGREDIENTS, PREPARED_FOR_TOMORROW_TEMPLATES } from '../data/doctrineData';
 import { DailySummaryView } from './DailySummaryView';
-import { CheckCircle2, Circle, Clock, Flame, ShieldAlert, Sparkles, Moon, Sun, ArrowRight, Check } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, Flame, ShieldAlert, Sparkles, Moon, Sun, ArrowRight, Check, FileText } from 'lucide-react';
 
 
 export const TodayView = () => {
@@ -15,7 +15,8 @@ export const TodayView = () => {
     toggleNamaz,
     toggleTahajjud,
     toggleAnchor,
-    togglePrepItem
+    togglePrepItem,
+    updateDailyNotes
   } = useApp();
 
   const [nowMinutes, setNowMinutes] = useState(() => {
@@ -346,6 +347,28 @@ export const TodayView = () => {
             );
           })}
         </div>
+      </div>
+
+      {/* DAILY NOTES & REFLECTIONS */}
+      <div className="card" style={{ marginBottom: '24px' }}>
+        <div className="card-title">
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FileText size={18} color="var(--accent-blue)" /> Daily Notes & Observations
+          </span>
+          <span className="badge badge-purple">Attached to {selectedDate}</span>
+        </div>
+        <div className="card-subtitle">
+          Record observations, wins, obstacles, or adjustments for today ({selectedDate}).
+        </div>
+
+        <textarea
+          className="form-textarea"
+          rows={4}
+          placeholder="Type your reflections, observations, or reasons for missed tasks today..."
+          value={currentLog.notes || ''}
+          onChange={(e) => updateDailyNotes(selectedDate, e.target.value)}
+          style={{ width: '100%', marginTop: '8px', fontSize: '13px', lineHeight: '1.5' }}
+        />
       </div>
 
       {/* 10:00 PM DAILY AI SUMMARY */}

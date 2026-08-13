@@ -4,7 +4,7 @@ import { db } from '../db/index.js';
 import { dailyExecutions, taskExecutions, doctrineVersions } from '../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { cryptoNative } from '../utils/crypto.js';
-import { PREPARED_FOR_TOMORROW_TEMPLATES } from '../../src/data/doctrineData.js';
+import { WEEKLY_DOCTRINE, PREPARED_FOR_TOMORROW_TEMPLATES } from '../../src/data/doctrineData.js';
 
 const router = Router();
 
@@ -29,7 +29,23 @@ async function getOrCreateDailyExecution(userId, dateStr) {
       .from(taskExecutions)
       .where(eq(taskExecutions.dailyExecutionId, existing.id));
 
-    return { execution: existing, tasks };
+    const totalTasksCount = tasks.length;
+    const completedCount = tasks.filter((t) => t.status === 'COMPLETED').length;
+    const skippedCount = tasks.filter((t) => t.status === 'SKIPPED').length;
+    const missedCount = tasks.filter((t) => t.status === 'MISSED').length;
+    const completionPercentage = totalTasksCount > 0 ? Math.round((completedCount / totalTasksCount) * 100) : 0;
+
+    return {
+      execution: {
+        ...existing,
+        completionPercentage,
+        completedCount,
+        totalTasksCount,
+        skippedCount,
+        missedCount,
+      },
+      tasks,
+    };
   }
 
   // Get user's active doctrine version
@@ -63,7 +79,24 @@ async function getOrCreateDailyExecution(userId, dateStr) {
   // Seed default task execution templates
   const initialTaskValues = [];
 
-  // Namaz Tasks
+  // 1. Time Blocks from Doctrine Schedule
+  const dayDoctrine = WEEKLY_DOCTRINE[dayOfWeek] || WEEKLY_DOCTRINE.MONDAY;
+  if (dayDoctrine && Array.isArray(dayDoctrine.timeBlocks)) {
+    dayDoctrine.timeBlocks.forEach((block) => {
+      initialTaskValues.push({
+        id: cryptoNative.randomUUID(),
+        dailyExecutionId: newExecutionId,
+        taskKey: block.id,
+        category: 'DOCTRINE',
+        taskName: block.activity,
+        status: 'SCHEDULED',
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      });
+    });
+  }
+
+  // 2. Namaz Tasks
   ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].forEach((prayer) => {
     initialTaskValues.push({
       id: cryptoNative.randomUUID(),
@@ -77,7 +110,7 @@ async function getOrCreateDailyExecution(userId, dateStr) {
     });
   });
 
-  // Anchors
+  // 3. Anchors
   ['medKcalReached', 'amSkincare', 'pmSkincare', 'massShakeTaken'].forEach((anchorKey) => {
     initialTaskValues.push({
       id: cryptoNative.randomUUID(),
@@ -91,14 +124,14 @@ async function getOrCreateDailyExecution(userId, dateStr) {
     });
   });
 
-  // Prep items
+  // 4. Prep items
   PREPARED_FOR_TOMORROW_TEMPLATES.forEach((item) => {
     initialTaskValues.push({
       id: cryptoNative.randomUUID(),
       dailyExecutionId: newExecutionId,
       taskKey: `prep_${item.id}`,
       category: 'PREPARATION',
-      taskName: item.title,
+      taskName: item.title || item.text,
       status: 'SCHEDULED',
       createdAt: nowIso,
       updatedAt: nowIso,
@@ -120,7 +153,23 @@ async function getOrCreateDailyExecution(userId, dateStr) {
     .from(taskExecutions)
     .where(eq(taskExecutions.dailyExecutionId, newExecutionId));
 
-  return { execution: newExecution, tasks: seededTasks };
+  const totalTasksCount = seededTasks.length;
+  const completedCount = seededTasks.filter((t) => t.status === 'COMPLETED').length;
+  const skippedCount = seededTasks.filter((t) => t.status === 'SKIPPED').length;
+  const missedCount = seededTasks.filter((t) => t.status === 'MISSED').length;
+  const completionPercentage = totalTasksCount > 0 ? Math.round((completedCount / totalTasksCount) * 100) : 0;
+
+  return {
+    execution: {
+      ...newExecution,
+      completionPercentage,
+      completedCount,
+      totalTasksCount,
+      skippedCount,
+      missedCount,
+    },
+    tasks: seededTasks,
+  };
 }
 
 // GET /api/history/:date (Authenticated Endpoint)
@@ -132,7 +181,6 @@ router.get('/:date', requireAuth, async (req, res) => {
   }
 
   try {
-    // Authenticated user ID strictly enforced from verified session
     const userId = req.user.id;
     const data = await getOrCreateDailyExecution(userId, date);
     res.json(data);
@@ -145,7 +193,7 @@ router.get('/:date', requireAuth, async (req, res) => {
 // POST /api/history/:date/toggle (Authenticated Endpoint)
 router.post('/:date/toggle', requireAuth, async (req, res) => {
   const { date } = req.params;
-  const { taskKey } = req.body;
+  const { taskKey, status: targetStatus } = req.body;
 
   if (!isValidDateStr(date) || !taskKey) {
     return res.status(400).json({ error: 'Invalid Parameters', message: 'Valid date and taskKey required' });
@@ -159,7 +207,12 @@ router.post('/:date/toggle', requireAuth, async (req, res) => {
     const nowIso = new Date().toISOString();
 
     if (existingTask) {
-      const nextStatus = existingTask.status === 'COMPLETED' ? 'SCHEDULED' : 'COMPLETED';
+      let nextStatus = 'SCHEDULED';
+      if (targetStatus && ['COMPLETED', 'SKIPPED', 'SCHEDULED', 'MISSED'].includes(targetStatus)) {
+        nextStatus = targetStatus;
+      } else {
+        nextStatus = existingTask.status === 'COMPLETED' ? 'SCHEDULED' : 'COMPLETED';
+      }
       const completedAt = nextStatus === 'COMPLETED' ? nowIso : null;
 
       await db
@@ -171,20 +224,21 @@ router.post('/:date/toggle', requireAuth, async (req, res) => {
         })
         .where(eq(taskExecutions.id, existingTask.id));
     } else {
-      // Insert custom task execution if not present
+      const nextStatus = (targetStatus && ['COMPLETED', 'SKIPPED', 'SCHEDULED', 'MISSED'].includes(targetStatus)) ? targetStatus : 'COMPLETED';
+      const completedAt = nextStatus === 'COMPLETED' ? nowIso : null;
+
       await db.insert(taskExecutions).values({
         id: cryptoNative.randomUUID(),
         dailyExecutionId: execution.id,
         taskKey,
         category: 'DOCTRINE',
-        status: 'COMPLETED',
-        completedAt: nowIso,
+        status: nextStatus,
+        completedAt,
         createdAt: nowIso,
         updatedAt: nowIso,
       });
     }
 
-    // Return updated execution payload
     const updatedData = await getOrCreateDailyExecution(userId, date);
     res.json(updatedData);
   } catch (error) {

@@ -43,6 +43,13 @@
       "when": 1786641453547,
       "tag": "0005_panoramic_bromley",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1786644116405,
+      "tag": "0006_cold_cammi",
+      "breakpoints": true
     }
   ]
 }

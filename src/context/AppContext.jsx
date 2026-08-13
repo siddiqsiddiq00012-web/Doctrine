@@ -342,9 +342,30 @@ export const AppProvider = ({ children }) => {
     };
   };
 
-  // Toggle actions backed by Server DB
+  // Toggle actions backed by Server DB with Optimistic UI updates
   const toggleTask = async (dateStr, taskId) => {
     if (!user) return;
+    
+    // Optimistic UI update
+    const now12h = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+    setDailyLogs(prev => {
+      const current = prev[dateStr] || getOrCreateDailyLog(dateStr);
+      const isCurrentlyDone = !!current.completedTasks[taskId]?.completed;
+      return {
+        ...prev,
+        [dateStr]: {
+          ...current,
+          completedTasks: {
+            ...current.completedTasks,
+            [taskId]: {
+              completed: !isCurrentlyDone,
+              timestamp: !isCurrentlyDone ? now12h : null
+            }
+          }
+        }
+      };
+    });
+
     try {
       const res = await fetch(`/api/history/${dateStr}/toggle`, {
         method: 'POST',
@@ -354,24 +375,66 @@ export const AppProvider = ({ children }) => {
       });
       if (res.ok) {
         fetchHistoryForDate(dateStr);
+      } else {
+        fetchHistoryForDate(dateStr); // Rollback on error
       }
     } catch (e) {
       console.error('Toggle task error:', e);
+      fetchHistoryForDate(dateStr);
     }
   };
 
   const toggleNamaz = async (dateStr, prayer) => {
     if (!user) return;
+    setDailyLogs(prev => {
+      const current = prev[dateStr] || getOrCreateDailyLog(dateStr);
+      return {
+        ...prev,
+        [dateStr]: {
+          ...current,
+          namaz: {
+            ...current.namaz,
+            [prayer]: !current.namaz[prayer]
+          }
+        }
+      };
+    });
     await toggleTask(dateStr, `namaz_${prayer}`);
   };
 
   const toggleAnchor = async (dateStr, anchorKey) => {
     if (!user) return;
+    setDailyLogs(prev => {
+      const current = prev[dateStr] || getOrCreateDailyLog(dateStr);
+      return {
+        ...prev,
+        [dateStr]: {
+          ...current,
+          anchors: {
+            ...current.anchors,
+            [anchorKey]: !current.anchors[anchorKey]
+          }
+        }
+      };
+    });
     await toggleTask(dateStr, `anchor_${anchorKey}`);
   };
 
   const togglePrepItem = async (dateStr, prepId) => {
     if (!user) return;
+    setDailyLogs(prev => {
+      const current = prev[dateStr] || getOrCreateDailyLog(dateStr);
+      return {
+        ...prev,
+        [dateStr]: {
+          ...current,
+          preparedForTomorrow: {
+            ...current.preparedForTomorrow,
+            [prepId]: !current.preparedForTomorrow[prepId]
+          }
+        }
+      };
+    });
     await toggleTask(dateStr, `prep_${prepId}`);
   };
 
@@ -379,6 +442,13 @@ export const AppProvider = ({ children }) => {
     if (!user) return;
     const currentLog = getOrCreateDailyLog(dateStr);
     const nextVal = !currentLog.tahajjud;
+    setDailyLogs(prev => ({
+      ...prev,
+      [dateStr]: {
+        ...currentLog,
+        tahajjud: nextVal
+      }
+    }));
     try {
       const res = await fetch(`/api/history/${dateStr}/update`, {
         method: 'POST',
@@ -388,14 +458,27 @@ export const AppProvider = ({ children }) => {
       });
       if (res.ok) {
         fetchHistoryForDate(dateStr);
+      } else {
+        fetchHistoryForDate(dateStr);
       }
     } catch (e) {
       console.error('Tahajjud toggle error:', e);
+      fetchHistoryForDate(dateStr);
     }
   };
 
   const setWaterLiters = async (dateStr, liters) => {
     if (!user) return;
+    setDailyLogs(prev => {
+      const current = prev[dateStr] || getOrCreateDailyLog(dateStr);
+      return {
+        ...prev,
+        [dateStr]: {
+          ...current,
+          waterLiters: liters
+        }
+      };
+    });
     try {
       const res = await fetch(`/api/history/${dateStr}/update`, {
         method: 'POST',
@@ -405,9 +488,41 @@ export const AppProvider = ({ children }) => {
       });
       if (res.ok) {
         fetchHistoryForDate(dateStr);
+      } else {
+        fetchHistoryForDate(dateStr);
       }
     } catch (e) {
       console.error('Water update error:', e);
+      fetchHistoryForDate(dateStr);
+    }
+  };
+
+  const updateDailyNotes = async (dateStr, notesText) => {
+    if (!user) return;
+    setDailyLogs(prev => {
+      const current = prev[dateStr] || getOrCreateDailyLog(dateStr);
+      return {
+        ...prev,
+        [dateStr]: {
+          ...current,
+          notes: notesText
+        }
+      };
+    });
+
+    try {
+      const res = await fetch(`/api/history/${dateStr}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ notes: notesText })
+      });
+      if (!res.ok) {
+        fetchHistoryForDate(dateStr);
+      }
+    } catch (e) {
+      console.error('Error saving notes:', e);
+      fetchHistoryForDate(dateStr);
     }
   };
 
@@ -549,6 +664,7 @@ export const AppProvider = ({ children }) => {
       toggleAnchor,
       togglePrepItem,
       setWaterLiters,
+      updateDailyNotes,
       inventory,
       updateInventoryItem,
       addInventoryItem,

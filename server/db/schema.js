@@ -84,7 +84,7 @@ export const taskExecutions = sqliteTable('task_executions', {
   updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
 }, (table) => ({
   dailyExecIdx: index('task_executions_daily_exec_idx').on(table.dailyExecutionId),
-  taskKeyIdx: index('task_executions_key_idx').on(table.dailyExecutionId, table.taskKey),
+  taskKeyIdx: uniqueIndex('task_executions_key_idx').on(table.dailyExecutionId, table.taskKey),
 }));
 
 // Daily Summaries Table (Feature 2: 10:00 PM AI Daily Summary Persistence)
