@@ -81,16 +81,14 @@ export const HomeView = () => {
     );
   }
 
-  const {
-    today,
-    primaryAction,
-    dataEngineering,
-    resources,
-    dailyAiSummary,
-    weeklyProgress,
-    weeklyReview,
-    recentHistory
-  } = dashboardData;
+  const today = dashboardData?.today || { date: formattedDate, completionPercentage: 0, completedCount: 0, totalTasksCount: 0, remainingPriorities: [] };
+  const primaryAction = dashboardData?.primaryAction || { type: 'DOCTRINE', label: "Complete Today's Doctrine", targetTab: 'today' };
+  const dataEngineering = dashboardData?.dataEngineering || { status: 'ok', topic: 'Data Engineering Mastery', targetMinutes: 60, completedMinutes: 0, isCompleted: false };
+  const resources = dashboardData?.resources || { status: 'ok', needsAttentionCount: 0, itemsNeeded: [], isFullyStocked: true };
+  const dailyAiSummary = dashboardData?.dailyAiSummary || { status: 'ok', hasSummary: false, summary: null };
+  const weeklyProgress = dashboardData?.weeklyProgress || { status: 'ok', recordedDaysCount: 0, weeklyAveragePct: 0, days: [] };
+  const weeklyReview = dashboardData?.weeklyReview || { status: 'ok', isSunday: false, isCompleted: false };
+  const recentHistory = dashboardData?.recentHistory || { status: 'ok', days: [] };
 
   return (
     <div className="home-view" style={{ maxWidth: '840px', margin: '0 auto', paddingBottom: '40px' }}>
