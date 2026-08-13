@@ -7,17 +7,37 @@ import { WEEKLY_DOCTRINE, INITIAL_INVENTORY } from '../../src/data/doctrineData.
 
 const router = Router();
 
-// Helper to calculate current Monday..Sunday date range
+function getTodayISO() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatYMD(dateObj) {
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const d = String(dateObj.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 function getCurrentWeekRange(todayStr) {
-  const d = new Date(todayStr + 'T00:00:00');
-  const day = d.getDay();
-  const diffToMon = d.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(d.setDate(diffToMon));
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
+  const parts = todayStr.split('-').map(Number);
+  const year = parts[0] || new Date().getFullYear();
+  const month = (parts[1] || 1) - 1;
+  const day = parts[2] || 1;
+
+  const d = new Date(year, month, day);
+  const dayOfWeekNum = d.getDay();
+  const diffToMon = d.getDate() - dayOfWeekNum + (dayOfWeekNum === 0 ? -6 : 1);
+
+  const monday = new Date(year, month, diffToMon);
+  const sunday = new Date(year, month, diffToMon + 6);
+
   return {
-    startStr: monday.toISOString().split('T')[0],
-    endStr: sunday.toISOString().split('T')[0]
+    startStr: formatYMD(monday),
+    endStr: formatYMD(sunday)
   };
 }
 
@@ -27,14 +47,15 @@ router.get('/', requireAuth, async (req, res) => {
     const userId = req.user.id;
     const todayDate = (req.query.date && typeof req.query.date === 'string' && req.query.date.match(/^\d{4}-\d{2}-\d{2}$/))
       ? req.query.date
-      : new Date().toLocaleDateString('en-CA');
-    const [year, month, day] = todayDate.split('-').map(Number);
-    const dateObj = new Date(year, month - 1, day);
+      : getTodayISO();
+
+    const parts = todayDate.split('-').map(Number);
+    const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
     const dayNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
-    const dayOfWeek = dayNames[dateObj.getDay()];
+    const dayOfWeek = dayNames[dateObj.getDay()] || 'MONDAY';
 
     const dayDoctrine = WEEKLY_DOCTRINE[dayOfWeek] || WEEKLY_DOCTRINE.MONDAY;
-    const dayTheme = dayDoctrine.theme || null;
+    const dayTheme = dayDoctrine?.theme || null;
 
     const result = {
       today: {
@@ -165,7 +186,7 @@ router.get('/', requireAuth, async (req, res) => {
       const stockMap = new Map(dbStocks.map(s => [s.resourceId, s.currentQty]));
 
       const itemsNeeded = [];
-      INITIAL_INVENTORY.forEach(item => {
+      (INITIAL_INVENTORY || []).forEach(item => {
         const currentQty = stockMap.has(item.id) ? stockMap.get(item.id) : item.currentQty;
         const required = item.purchaseQty || (item.minStockLevel ? item.minStockLevel * 2 : 1);
         const needed = Math.max(0, required - currentQty);
