@@ -1,6 +1,7 @@
 import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { TodayView } from './components/TodayView';
+import { HistoryView } from './components/HistoryView';
 import { WeekView } from './components/WeekView';
 import { ProfileView } from './components/ProfileView';
 import { TrainingView } from './components/TrainingView';
@@ -39,6 +40,7 @@ const MainContent = () => {
   const renderTab = () => {
     switch (activeTab) {
       case 'today': return <TodayView />;
+      case 'history': return <HistoryView />;
       case 'week': return <WeekView />;
       case 'profile': return <ProfileView />;
       case 'training': return <TrainingView />;

@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { db } from '../db/index.js';
-import { dailyExecutions, taskExecutions, doctrineVersions } from '../db/schema.js';
-import { eq, and } from 'drizzle-orm';
+import { dailyExecutions, taskExecutions, doctrineVersions, dailySummaries, deLearningSessions } from '../db/schema.js';
+import { eq, and, desc } from 'drizzle-orm';
 import { cryptoNative } from '../utils/crypto.js';
 import { WEEKLY_DOCTRINE, PREPARED_FOR_TOMORROW_TEMPLATES } from '../../src/data/doctrineData.js';
 
@@ -171,6 +171,112 @@ async function getOrCreateDailyExecution(userId, dateStr) {
     tasks: seededTasks,
   };
 }
+
+// GET /api/history/timeline — Chronological Timeline of Recorded Execution Days
+router.get('/timeline', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const execRecords = await db
+      .select()
+      .from(dailyExecutions)
+      .where(eq(dailyExecutions.userId, userId))
+      .orderBy(desc(dailyExecutions.date));
+
+    const userSummaries = await db
+      .select()
+      .from(dailySummaries)
+      .where(eq(dailySummaries.userId, userId));
+    const summaryDateMap = new Set(userSummaries.map(s => s.date));
+
+    const userDeSessions = await db
+      .select()
+      .from(deLearningSessions)
+      .where(eq(deLearningSessions.userId, userId));
+    const deDateMap = new Set(userDeSessions.map(s => s.date));
+
+    const timeline = await Promise.all(execRecords.map(async (exec) => {
+      const tasks = await db
+        .select()
+        .from(taskExecutions)
+        .where(eq(taskExecutions.dailyExecutionId, exec.id));
+
+      const totalTasksCount = tasks.length;
+      const completedCount = tasks.filter(t => t.status === 'COMPLETED').length;
+      const skippedCount = tasks.filter(t => t.status === 'SKIPPED').length;
+      const missedCount = tasks.filter(t => t.status === 'MISSED').length;
+      const completionPercentage = totalTasksCount > 0 ? Math.round((completedCount / totalTasksCount) * 100) : 0;
+
+      return {
+        id: exec.id,
+        date: exec.date,
+        dayOfWeek: exec.dayOfWeek,
+        completionPercentage,
+        completedCount,
+        totalTasksCount,
+        skippedCount,
+        missedCount,
+        notes: exec.notes || '',
+        waterLiters: exec.waterLiters || 0,
+        tahajjud: Boolean(exec.tahajjud),
+        hasAiSummary: summaryDateMap.has(exec.date),
+        hasDeActivity: deDateMap.has(exec.date)
+      };
+    }));
+
+    res.json({ success: true, timeline });
+  } catch (error) {
+    console.error('[History API] Fetch timeline failed:', error);
+    res.status(500).json({ error: 'Failed to retrieve timeline', details: error.message });
+  }
+});
+
+// GET /api/history/overview — Consistency & Execution Overview Metrics
+router.get('/overview', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const execRecords = await db
+      .select()
+      .from(dailyExecutions)
+      .where(eq(dailyExecutions.userId, userId));
+
+    const totalDaysTracked = execRecords.length;
+
+    let activeDaysCount = 0;
+    let sumPercentage = 0;
+
+    for (const exec of execRecords) {
+      const tasks = await db
+        .select()
+        .from(taskExecutions)
+        .where(eq(taskExecutions.dailyExecutionId, exec.id));
+
+      const totalCount = tasks.length;
+      const completedCount = tasks.filter(t => t.status === 'COMPLETED').length;
+      const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+      sumPercentage += pct;
+      if (completedCount > 0) {
+        activeDaysCount++;
+      }
+    }
+
+    const averageCompletionPct = totalDaysTracked > 0 ? Math.round(sumPercentage / totalDaysTracked) : 0;
+
+    res.json({
+      success: true,
+      overview: {
+        totalDaysTracked,
+        activeDaysCount,
+        averageCompletionPct
+      }
+    });
+  } catch (error) {
+    console.error('[History API] Fetch overview failed:', error);
+    res.status(500).json({ error: 'Failed to retrieve overview', details: error.message });
+  }
+});
 
 // GET /api/history/:date (Authenticated Endpoint)
 router.get('/:date', requireAuth, async (req, res) => {
