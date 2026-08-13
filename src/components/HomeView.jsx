@@ -41,6 +41,8 @@ export const HomeView = () => {
         setDashboardData(data);
       } else if (res.status === 401) {
         setError('Active session required. Please sign in to view your Command Center.');
+      } else if (res.status === 404) {
+        setError('Backend dashboard route not found (404). Please restart your backend Node server (node server/index.js) so Express loads the new /api/dashboard endpoint.');
       } else {
         const text = await res.text().catch(() => '');
         let errData = {};

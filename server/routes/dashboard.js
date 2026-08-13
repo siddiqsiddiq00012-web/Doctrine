@@ -42,7 +42,7 @@ function getCurrentWeekRange(todayStr) {
 }
 
 // GET /api/dashboard — Aggregated Home Command Center
-router.get('/', requireAuth, async (req, res) => {
+router.get(['/', ''], requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
     const todayDate = (req.query.date && typeof req.query.date === 'string' && req.query.date.match(/^\d{4}-\d{2}-\d{2}$/))
