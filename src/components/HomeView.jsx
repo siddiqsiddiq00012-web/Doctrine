@@ -27,22 +27,33 @@ export const HomeView = () => {
     setLoading(true);
     setError(null);
     try {
-      const todayStr = getTodayStr ? getTodayStr() : new Date().toLocaleDateString('en-CA');
+      const todayStr = getTodayStr ? getTodayStr() : (function() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${dd}`;
+      })();
+
       const res = await fetch(`/api/dashboard?date=${todayStr}`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setDashboardData(data);
+      } else if (res.status === 401) {
+        setError('Active session required. Please sign in to view your Command Center.');
       } else {
-        const errData = await res.json().catch(() => ({}));
-        setError(errData.error || errData.message || 'Failed to load dashboard data');
+        const text = await res.text().catch(() => '');
+        let errData = {};
+        try { errData = JSON.parse(text); } catch (e) {}
+        setError(errData.details || errData.message || errData.error || `Server Response Error (${res.status}): ${text.substring(0, 120) || 'Unable to communicate with backend server'}`);
       }
     } catch (e) {
       console.error('Dashboard fetch error:', e);
-      setError(e.message || 'Network error');
+      setError(e.message || 'Network connection failed. Verify backend server is running.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getTodayStr]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -174,13 +185,13 @@ export const HomeView = () => {
             </button>
           </div>
 
-          {today.remainingPriorities.length === 0 ? (
+          {(today.remainingPriorities || []).length === 0 ? (
             <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--accent-green, #10B981)', fontSize: '13px', fontWeight: 600 }}>
               ✓ All scheduled time-block tasks for today are completed!
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {today.remainingPriorities.map((item) => (
+              {(today.remainingPriorities || []).map((item) => (
                 <div
                   key={item.id}
                   onClick={() => setActiveTab('today')}
@@ -271,7 +282,7 @@ export const HomeView = () => {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {resources.itemsNeeded.map((item) => (
+                {(resources.itemsNeeded || []).map((item) => (
                   <div key={item.id} style={{ fontSize: '12px', color: 'var(--text-primary)', padding: '6px 8px', background: 'var(--card-subtle-bg, #F9FAFB)', borderRadius: '6px', display: 'flex', justifyContent: 'space-between' }}>
                     <span>{item.name}</span>
                     <strong style={{ color: 'var(--accent-amber, #F59E0B)' }}>Need {item.needed} {item.unit}</strong>
@@ -356,7 +367,7 @@ export const HomeView = () => {
           <div style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>No recent historical records logged yet.</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {recentHistory.days.map((item) => (
+            {(recentHistory.days || []).map((item) => (
               <div
                 key={item.date}
                 onClick={() => setActiveTab('history')}
