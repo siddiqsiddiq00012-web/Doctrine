@@ -3,8 +3,38 @@ import { requireAuth } from '../middleware/authMiddleware.js';
 import { db } from '../db/index.js';
 import { userPreferences } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = Router();
+const uploadsAvatarsDir = path.resolve(__dirname, '../../uploads/avatars');
+
+// Ensure upload directory exists
+if (!fs.existsSync(uploadsAvatarsDir)) {
+  fs.mkdirSync(uploadsAvatarsDir, { recursive: true });
+}
+
+// Helper to delete previous avatar files for user
+function deleteUserAvatarFiles(userId) {
+  try {
+    const files = fs.readdirSync(uploadsAvatarsDir);
+    const userPrefix = `avatar_${userId}_`;
+    files.forEach((file) => {
+      if (file.startsWith(userPrefix)) {
+        const filePath = path.join(uploadsAvatarsDir, file);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+    });
+  } catch (err) {
+    console.error(`[Avatar Storage] Warning: Failed to cleanup old avatar for user ${userId}:`, err.message);
+  }
+}
 
 // GET /api/user/preferences
 router.get('/preferences', requireAuth, async (req, res) => {
@@ -17,7 +47,6 @@ router.get('/preferences', requireAuth, async (req, res) => {
       .limit(1);
 
     if (!prefs) {
-      // Default preferences
       return res.json({
         userId,
         customDisplayName: req.user.displayName,
@@ -39,12 +68,116 @@ router.get('/preferences', requireAuth, async (req, res) => {
       weekStart: prefs.weekStart || 'MONDAY',
     });
   } catch (error) {
-    console.error('Error fetching user preferences:', error);
-    res.status(500).json({ error: 'Failed to retrieve preferences' });
+    console.error('[User API] Error fetching preferences:', error);
+    res.status(500).json({ error: 'Failed to retrieve preferences', details: error.message });
   }
 });
 
-// Update Handler (Supports both PUT and POST)
+// POST /api/user/avatar — High Reliability Avatar Upload to Disk
+router.post('/avatar', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { avatarData } = req.body;
+
+    if (!avatarData || typeof avatarData !== 'string') {
+      return res.status(400).json({ error: 'Validation Error', message: 'Missing avatar image data' });
+    }
+
+    // Extract MIME type and Base64 content
+    const matches = avatarData.match(/^data:(image\/(jpeg|jpg|png|webp));base64,(.+)$/i);
+    if (!matches) {
+      return res.status(400).json({
+        error: 'Unsupported File Type',
+        message: 'Only JPEG, PNG, and WebP image formats are supported.'
+      });
+    }
+
+    const mimeType = matches[1].toLowerCase();
+    const base64Data = matches[3];
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    // Enforce 5MB size limit
+    const MAX_SIZE_BYTES = 5 * 1024 * 1024;
+    if (buffer.length > MAX_SIZE_BYTES) {
+      return res.status(400).json({
+        error: 'File Too Large',
+        message: 'Image size exceeds 5MB limit.'
+      });
+    }
+
+    // Determine extension
+    let ext = 'jpg';
+    if (mimeType.includes('png')) ext = 'png';
+    else if (mimeType.includes('webp')) ext = 'webp';
+
+    // Delete existing custom avatar file for user
+    deleteUserAvatarFiles(userId);
+
+    // Save image to uploads/avatars/
+    const filename = `avatar_${userId}_${Date.now()}.${ext}`;
+    const filePath = path.join(uploadsAvatarsDir, filename);
+
+    fs.writeFileSync(filePath, buffer);
+
+    const relativeUrl = `/uploads/avatars/${filename}`;
+    const nowIso = new Date().toISOString();
+
+    // Update database record with lightweight URL path
+    const [existing] = await db
+      .select()
+      .from(userPreferences)
+      .where(eq(userPreferences.userId, userId))
+      .limit(1);
+
+    if (existing) {
+      await db
+        .update(userPreferences)
+        .set({ customAvatarUrl: relativeUrl, updatedAt: nowIso })
+        .where(eq(userPreferences.userId, userId));
+    } else {
+      await db.insert(userPreferences).values({
+        userId,
+        customDisplayName: req.user.displayName,
+        bio: '',
+        customAvatarUrl: relativeUrl,
+        theme: 'light',
+        timeFormat: '12h',
+        weekStart: 'MONDAY',
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      });
+    }
+
+    console.log(`[Avatar Storage] Saved avatar for user ${userId} -> ${relativeUrl}`);
+    res.json({ success: true, customAvatarUrl: relativeUrl });
+  } catch (error) {
+    console.error('[Avatar API Error]:', error);
+    res.status(500).json({ error: 'Failed to process avatar upload', details: error.message });
+  }
+});
+
+// DELETE /api/user/avatar — Revert Custom Avatar to Fall Back to Google Profile Photo
+router.delete('/avatar', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    deleteUserAvatarFiles(userId);
+
+    const nowIso = new Date().toISOString();
+
+    await db
+      .update(userPreferences)
+      .set({ customAvatarUrl: null, updatedAt: nowIso })
+      .where(eq(userPreferences.userId, userId));
+
+    console.log(`[Avatar Storage] Reverted avatar for user ${userId} to Google photo fallback`);
+    res.json({ success: true, customAvatarUrl: null });
+  } catch (error) {
+    console.error('[Avatar API Error]:', error);
+    res.status(500).json({ error: 'Failed to revert avatar', details: error.message });
+  }
+});
+
+// Update Handler for Preferences (PUT & POST /api/user/preferences)
 const handleUpdatePreferences = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -54,7 +187,7 @@ const handleUpdatePreferences = async (req, res) => {
     const allowedTimeFormats = ['12h', '24h'];
     const allowedWeekStarts = ['MONDAY', 'SUNDAY'];
 
-    // Bio validation (max 160 characters)
+    // Bio character validation
     if (bio !== undefined && typeof bio === 'string' && bio.length > 160) {
       return res.status(400).json({
         error: 'Validation Error',
@@ -63,10 +196,7 @@ const handleUpdatePreferences = async (req, res) => {
     }
 
     const nowIso = new Date().toISOString();
-
-    const updatePayload = {
-      updatedAt: nowIso,
-    };
+    const updatePayload = { updatedAt: nowIso };
 
     if (customDisplayName !== undefined) updatePayload.customDisplayName = String(customDisplayName).trim();
     if (bio !== undefined) updatePayload.bio = String(bio).trim();
@@ -119,12 +249,11 @@ const handleUpdatePreferences = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error updating user preferences:', error);
-    res.status(500).json({ error: 'Failed to save preferences' });
+    console.error('[User API Error] Updating preferences failed:', error);
+    res.status(500).json({ error: 'Failed to save preferences', details: error.message });
   }
 };
 
-// PUT /api/user/preferences & POST /api/user/preferences
 router.put('/preferences', requireAuth, handleUpdatePreferences);
 router.post('/preferences', requireAuth, handleUpdatePreferences);
 

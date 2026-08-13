@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { WEEKLY_DOCTRINE, NON_NEGOTIABLE_RULES, ACTIVE_INGREDIENTS, PREPARED_FOR_TOMORROW_TEMPLATES } from '../data/doctrineData';
+import { DailySummaryView } from './DailySummaryView';
 import { CheckCircle2, Circle, Clock, Flame, ShieldAlert, Sparkles, Moon, Sun, ArrowRight, Check } from 'lucide-react';
+
 
 export const TodayView = () => {
   const {
@@ -314,7 +316,7 @@ export const TodayView = () => {
       </div>
 
       {/* PREPARED FOR TOMORROW CHECKLIST */}
-      <div className="card" style={{ borderColor: 'var(--accent-blue-subtle)' }}>
+      <div className="card" style={{ borderColor: 'var(--accent-blue-subtle)', marginBottom: '24px' }}>
         <div className="card-title">
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Moon size={18} color="var(--accent-blue)" /> Prepared For Tomorrow Checklist
@@ -345,6 +347,10 @@ export const TodayView = () => {
           })}
         </div>
       </div>
+
+      {/* 10:00 PM DAILY AI SUMMARY */}
+      <DailySummaryView dateStr={selectedDate} />
     </div>
   );
 };
+

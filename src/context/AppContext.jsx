@@ -11,7 +11,7 @@ export const useApp = () => {
   return context;
 };
 
-// Safe JSON Response Helper preventing "Unexpected token < in JSON" syntax errors
+// Safe JSON Response Parser preventing HTML parse syntax errors
 async function safeJsonParse(res) {
   const contentType = res.headers.get('content-type') || '';
   if (contentType.includes('application/json')) {
@@ -35,14 +35,15 @@ export const AppProvider = ({ children }) => {
   const [activeTab, setActiveTab] = useState('today');
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
 
-  // User Preferences & Personal Profile State
+  // User Preferences & Personal Profile State (Permanently standardized on 12-hour AM/PM)
   const [userPreferences, setUserPreferences] = useState({
     customDisplayName: '',
     bio: '',
     customAvatarUrl: null,
     theme: 'light',
-    timeFormat: '12h',
+    timeFormat: '12h', // Permanently standardized on 12-hour AM/PM
     weekStart: 'MONDAY',
+    reducedMotion: 'system' // 'system' | 'reduced'
   });
 
   // Backend DB Daily Executions cache
@@ -93,13 +94,17 @@ export const AppProvider = ({ children }) => {
     }
   });
 
-  // 1. Fetch User Preferences from Backend
+  // 1. Fetch User Preferences from Backend DB
   const fetchUserPreferences = useCallback(async () => {
     try {
       const res = await fetch('/api/user/preferences', { credentials: 'include' });
       if (res.ok) {
         const data = await safeJsonParse(res);
-        setUserPreferences(data);
+        setUserPreferences(prev => ({
+          ...prev,
+          ...data,
+          timeFormat: '12h' // Ensure standardized 12h AM/PM
+        }));
       }
     } catch (e) {
       console.error('Failed to fetch user preferences:', e);
@@ -113,11 +118,16 @@ export const AppProvider = ({ children }) => {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(newPrefs)
+        body: JSON.stringify({ ...newPrefs, timeFormat: '12h' })
       });
       if (res.ok) {
         const data = await safeJsonParse(res);
-        setUserPreferences(data.preferences);
+        setUserPreferences(prev => ({
+          ...prev,
+          ...data.preferences,
+          timeFormat: '12h',
+          reducedMotion: newPrefs.reducedMotion !== undefined ? newPrefs.reducedMotion : prev.reducedMotion
+        }));
         return { success: true };
       } else {
         const errData = await safeJsonParse(res);
@@ -125,6 +135,51 @@ export const AppProvider = ({ children }) => {
       }
     } catch (e) {
       console.error('Error saving user preferences:', e);
+      return { success: false, error: e.message };
+    }
+  };
+
+  // Upload Custom Avatar File to Server Disk
+  const uploadUserAvatar = async (avatarData) => {
+    try {
+      const res = await fetch('/api/user/avatar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ avatarData })
+      });
+      if (res.ok) {
+        const data = await safeJsonParse(res);
+        setUserPreferences(prev => ({ ...prev, customAvatarUrl: data.customAvatarUrl }));
+        await fetchUserPreferences(); // Verify from DB
+        return { success: true, customAvatarUrl: data.customAvatarUrl };
+      } else {
+        const errData = await safeJsonParse(res);
+        return { success: false, error: errData.message || errData.error || 'Upload failed' };
+      }
+    } catch (e) {
+      console.error('Error uploading avatar:', e);
+      return { success: false, error: e.message };
+    }
+  };
+
+  // Revert Custom Avatar to Fall Back to Google Photo
+  const deleteUserAvatar = async () => {
+    try {
+      const res = await fetch('/api/user/avatar', {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        setUserPreferences(prev => ({ ...prev, customAvatarUrl: null }));
+        await fetchUserPreferences(); // Verify from DB
+        return { success: true };
+      } else {
+        const errData = await safeJsonParse(res);
+        return { success: false, error: errData.message || errData.error || 'Revert failed' };
+      }
+    } catch (e) {
+      console.error('Error reverting avatar:', e);
       return { success: false, error: e.message };
     }
   };
@@ -172,6 +227,16 @@ export const AppProvider = ({ children }) => {
     }
   }, [userPreferences.theme]);
 
+  // Apply Reduced Motion Attribute to DOM
+  useEffect(() => {
+    const isReduced = userPreferences.reducedMotion === 'reduced';
+    if (isReduced) {
+      document.documentElement.setAttribute('data-reduced-motion', 'true');
+    } else {
+      document.documentElement.removeAttribute('data-reduced-motion');
+    }
+  }, [userPreferences.reducedMotion]);
+
   // 3. Fetch Historical Date Record from Backend DB
   const fetchHistoryForDate = useCallback(async (dateStr) => {
     if (!user) return;
@@ -200,7 +265,7 @@ export const AppProvider = ({ children }) => {
           } else {
             completedTasks[t.taskKey] = {
               completed: isDone,
-              timestamp: t.completedAt ? new Date(t.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null
+              timestamp: t.completedAt ? new Date(t.completedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }) : null
             };
           }
         });
@@ -230,20 +295,25 @@ export const AppProvider = ({ children }) => {
     }
   }, [user, selectedDate, fetchHistoryForDate]);
 
-  // Centralized Time Formatter
+  // Centralized Standardized 12-Hour AM/PM Time Formatter (h:mm AM/PM)
   const formatTimeDisplay = (timeString) => {
     if (!timeString) return '';
-    if (userPreferences.timeFormat === '24h') {
-      const match = timeString.match(/(\d+):(\d+)\s*(AM|PM)?/i);
-      if (match) {
-        let hours = parseInt(match[1], 10);
-        const minutes = match[2];
-        const period = match[3] ? match[3].toUpperCase() : '';
-        if (period === 'PM' && hours < 12) hours += 12;
-        if (period === 'AM' && hours === 12) hours = 0;
-        return `${String(hours).padStart(2, '0')}:${minutes}`;
+
+    // Handle HH:MM 24h string conversion to 12h AM/PM
+    const match = timeString.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    if (match) {
+      let hours = parseInt(match[1], 10);
+      const minutes = match[2];
+      let period = match[3] ? match[3].toUpperCase() : null;
+
+      if (!period) {
+        period = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        if (hours === 0) hours = 12;
       }
+      return `${hours}:${minutes} ${period}`;
     }
+
     return timeString;
   };
 
@@ -343,16 +413,27 @@ export const AppProvider = ({ children }) => {
 
   // Inventory actions
   const updateInventoryItem = (id, updates) => {
-    setInventory(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+    setInventory(prev => prev.map(item => {
+      if (item.id === id) {
+        return {
+          ...item,
+          currentQty: updates.currentQty !== undefined ? updates.currentQty : item.currentQty,
+          inCart: updates.inCart !== undefined ? updates.inCart : item.inCart,
+          lastPurchased: updates.lastPurchased !== undefined ? updates.lastPurchased : item.lastPurchased
+        };
+      }
+      return item;
+    }));
   };
 
-  const addInventoryItem = (newItem) => {
-    setInventory(prev => [...prev, { ...newItem, id: 'inv-' + Date.now() }]);
+  const addInventoryItem = () => {
+    console.warn('Blocked: Doctrine resource definitions are immutable. User cannot add new resources.');
   };
 
-  const deleteInventoryItem = (id) => {
-    setInventory(prev => prev.filter(item => item.id !== id));
+  const deleteInventoryItem = () => {
+    console.warn('Blocked: Doctrine resource definitions are immutable. User cannot delete resources.');
   };
+
 
   const toggleInCart = (id) => {
     setInventory(prev => prev.map(item => item.id === id ? { ...item, inCart: !item.inCart } : item));
@@ -450,6 +531,8 @@ export const AppProvider = ({ children }) => {
       logout,
       userPreferences,
       updateUserPreferences,
+      uploadUserAvatar,
+      deleteUserAvatar,
       activeAvatarUrl,
       formatTimeDisplay,
       activeTab,

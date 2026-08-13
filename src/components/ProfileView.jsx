@@ -19,6 +19,8 @@ export const ProfileView = () => {
     user,
     userPreferences,
     updateUserPreferences,
+    uploadUserAvatar,
+    deleteUserAvatar,
     activeAvatarUrl,
     setActiveTab
   } = useApp();
@@ -29,7 +31,8 @@ export const ProfileView = () => {
   // Form Editing State
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
-  const [avatarUrlInput, setAvatarUrlInput] = useState('');
+  const [selectedImageDataUri, setSelectedImageDataUri] = useState(null); // Pending new file upload
+  const [revertToGoogle, setRevertToGoogle] = useState(false);
   const [imagePreview, setImagePreview] = useState('');
 
   const [saving, setSaving] = useState(false);
@@ -43,12 +46,13 @@ export const ProfileView = () => {
       const currentAvatar = userPreferences.customAvatarUrl || '';
       setEditName(currentName);
       setEditBio(currentBio);
-      setAvatarUrlInput(currentAvatar);
+      setSelectedImageDataUri(null);
+      setRevertToGoogle(false);
       setImagePreview(currentAvatar || user?.avatarUrl || '');
     }
   }, [userPreferences, user, isEditing]);
 
-  // Client-side Image Optimization & Resizing via HTML5 Canvas (300x300 max)
+  // Client-side Image Optimization & Canvas Cropping (400x400 max)
   const handleImageFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -68,7 +72,7 @@ export const ProfileView = () => {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_SIZE = 300;
+        const MAX_SIZE = 400;
         let width = img.width;
         let height = img.height;
 
@@ -89,9 +93,9 @@ export const ProfileView = () => {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Convert to compressed WebP/JPEG Data URI for instant local storage
         const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        setAvatarUrlInput(optimizedDataUrl);
+        setSelectedImageDataUri(optimizedDataUrl);
+        setRevertToGoogle(false);
         setImagePreview(optimizedDataUrl);
         setStatusMessage(null);
       };
@@ -101,7 +105,8 @@ export const ProfileView = () => {
   };
 
   const handleRevertToGoogleAvatar = () => {
-    setAvatarUrlInput('');
+    setSelectedImageDataUri(null);
+    setRevertToGoogle(true);
     setImagePreview(user?.avatarUrl || '');
   };
 
@@ -121,22 +126,44 @@ export const ProfileView = () => {
     setSaving(true);
     setStatusMessage(null);
 
-    const result = await updateUserPreferences({
-      customDisplayName: editName.trim(),
-      bio: editBio.trim(),
-      customAvatarUrl: avatarUrlInput ? avatarUrlInput : null
-    });
+    try {
+      // 1. Handle Avatar File Upload / Revert if modified
+      if (selectedImageDataUri) {
+        const avatarRes = await uploadUserAvatar(selectedImageDataUri);
+        if (!avatarRes.success) {
+          setSaving(false);
+          setStatusMessage({ type: 'error', text: avatarRes.error || 'Failed to save avatar image' });
+          return;
+        }
+      } else if (revertToGoogle) {
+        const revertRes = await deleteUserAvatar();
+        if (!revertRes.success) {
+          setSaving(false);
+          setStatusMessage({ type: 'error', text: revertRes.error || 'Failed to revert avatar photo' });
+          return;
+        }
+      }
 
-    setSaving(false);
+      // 2. Save Name & Bio Preferences
+      const prefRes = await updateUserPreferences({
+        customDisplayName: editName.trim(),
+        bio: editBio.trim()
+      });
 
-    if (result.success) {
-      setStatusMessage({ type: 'success', text: 'Profile saved successfully' });
-      setTimeout(() => {
-        setStatusMessage(null);
-        setIsEditing(false);
-      }, 800);
-    } else {
-      setStatusMessage({ type: 'error', text: result.error || 'Failed to save profile' });
+      setSaving(false);
+
+      if (prefRes.success) {
+        setStatusMessage({ type: 'success', text: 'Profile saved successfully' });
+        setTimeout(() => {
+          setStatusMessage(null);
+          setIsEditing(false);
+        }, 600);
+      } else {
+        setStatusMessage({ type: 'error', text: prefRes.error || 'Failed to save preferences' });
+      }
+    } catch (err) {
+      setSaving(false);
+      setStatusMessage({ type: 'error', text: err.message || 'Error updating profile' });
     }
   };
 
@@ -144,382 +171,410 @@ export const ProfileView = () => {
   const bioText = userPreferences?.bio || '';
 
   const joinDateStr = user?.createdAt
-    ? new Date(user.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-    : 'Active Member';
+    ? new Date(user.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+    : 'Member';
 
   // ----------------------------------------------------
-  // 1. VIEW PROFILE MODE (CLEAN PERSONAL PROFILE ONLY)
+  // 1. VIEW PROFILE MODE (MODERN UN-BOXED SOCIAL PROFILE UX)
   // ----------------------------------------------------
   if (!isEditing) {
     return (
-      <div style={{ maxWidth: '640px', margin: '0 auto', padding: '12px 4px' }}>
-        
-        {/* Main Personal Profile Card */}
-        <div className="card" style={{
-          padding: '32px 24px',
-          textAlign: 'center',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          position: 'relative'
-        }}>
-          
-          {/* Profile Photo */}
-          <div style={{ position: 'relative', marginBottom: '16px' }}>
-            {activeAvatarUrl ? (
-              <img
-                src={activeAvatarUrl}
-                alt={displayName}
-                style={{
-                  width: '96px',
-                  height: '96px',
-                  borderRadius: '50%',
-                  objectFit: 'cover',
-                  border: '3px solid var(--border-color)',
-                  boxShadow: 'var(--shadow-md)'
-                }}
-              />
-            ) : (
-              <div style={{
-                width: '96px',
-                height: '96px',
+      <div style={{
+        maxWidth: '520px',
+        margin: '0 auto',
+        padding: '36px 16px 24px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        textAlign: 'center'
+      }}>
+
+        {/* LARGE PROMINENT PROFILE PHOTO */}
+        <div style={{ position: 'relative', marginBottom: '20px' }}>
+          {activeAvatarUrl ? (
+            <img
+              src={activeAvatarUrl}
+              alt={displayName}
+              style={{
+                width: '112px',
+                height: '112px',
                 borderRadius: '50%',
-                backgroundColor: 'var(--accent-blue-subtle)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                objectFit: 'cover',
                 border: '3px solid var(--border-color)',
-              }}>
-                <UserIcon size={48} color="var(--accent-blue)" />
-              </div>
-            )}
-          </div>
-
-          {/* User Display Name */}
-          <h1 style={{
-            fontSize: '24px',
-            fontWeight: 800,
-            letterSpacing: '-0.5px',
-            color: 'var(--text-primary)',
-            margin: '0 0 4px 0'
-          }}>
-            {displayName}
-          </h1>
-
-          {/* Email Address */}
-          <p style={{
-            fontSize: '14px',
-            color: 'var(--text-secondary)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            margin: '0 0 16px 0'
-          }}>
-            <Mail size={14} />
-            <span>{user?.email}</span>
-          </p>
-
-          {/* Personal Bio */}
-          <div style={{
-            width: '100%',
-            maxWidth: '480px',
-            padding: '14px 18px',
-            borderRadius: '12px',
-            backgroundColor: 'var(--bg-card-subtle)',
-            border: '1px solid var(--border-color)',
-            marginBottom: '24px',
-            textAlign: bioText ? 'left' : 'center'
-          }}>
-            {bioText ? (
-              <p style={{
-                fontSize: '14px',
-                color: 'var(--text-primary)',
-                lineHeight: '1.5',
-                whiteSpace: 'pre-wrap',
-                margin: 0
-              }}>
-                {bioText}
-              </p>
-            ) : (
-              <p style={{
-                fontSize: '13px',
-                color: 'var(--text-tertiary)',
-                fontStyle: 'italic',
-                margin: 0
-              }}>
-                No personal bio added yet. Tap "Edit Profile" below to write your bio.
-              </p>
-            )}
-          </div>
-
-          {/* Account Meta Badges */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            fontSize: '12px',
-            color: 'var(--text-tertiary)',
-            marginBottom: '28px'
-          }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Calendar size={13} /> Joined {joinDateStr}
-            </span>
-          </div>
-
-          {/* Clean Action Buttons */}
-          <div style={{
-            display: 'flex',
-            gap: '12px',
-            width: '100%',
-            maxWidth: '380px'
-          }}>
-            <button
-              onClick={() => setIsEditing(true)}
-              className="btn btn-primary"
-              style={{
-                flex: 1,
-                padding: '12px',
-                fontSize: '14px',
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                borderRadius: '10px'
+                boxShadow: 'var(--shadow-md)',
+                transition: 'transform 0.2s ease'
               }}
-            >
-              <Edit3 size={16} /> Edit Profile
-            </button>
-
-            <button
-              onClick={() => setActiveTab('settings')}
-              className="btn btn-secondary"
-              style={{
-                flex: 1,
-                padding: '12px',
-                fontSize: '14px',
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                borderRadius: '10px'
-              }}
-            >
-              <Settings size={16} /> Settings
-            </button>
-          </div>
-
+            />
+          ) : (
+            <div style={{
+              width: '112px',
+              height: '112px',
+              borderRadius: '50%',
+              backgroundColor: 'var(--accent-blue-subtle)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '3px solid var(--border-color)',
+              boxShadow: 'var(--shadow-sm)'
+            }}>
+              <UserIcon size={56} color="var(--accent-blue)" />
+            </div>
+          )}
         </div>
+
+        {/* DISPLAY NAME */}
+        <h1 style={{
+          fontSize: '26px',
+          fontWeight: 800,
+          letterSpacing: '-0.6px',
+          color: 'var(--text-primary)',
+          margin: '0 0 4px 0'
+        }}>
+          {displayName}
+        </h1>
+
+        {/* EMAIL ADDRESS */}
+        <p style={{
+          fontSize: '13px',
+          color: 'var(--text-tertiary)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '5px',
+          margin: '0 0 18px 0',
+          fontWeight: 500
+        }}>
+          <Mail size={13} />
+          <span>{user?.email}</span>
+        </p>
+
+        {/* NATURAL TYPOGRAPHY BIO (UN-BOXED, HUMAN PROFILE TEXT) */}
+        <div style={{
+          width: '100%',
+          maxWidth: '440px',
+          marginBottom: '20px'
+        }}>
+          {bioText ? (
+            <p style={{
+              fontSize: '15px',
+              color: 'var(--text-primary)',
+              lineHeight: '1.6',
+              whiteSpace: 'pre-wrap',
+              margin: 0,
+              fontWeight: 400
+            }}>
+              {bioText}
+            </p>
+          ) : (
+            <p style={{
+              fontSize: '13px',
+              color: 'var(--text-tertiary)',
+              fontStyle: 'italic',
+              margin: 0
+            }}>
+              No personal bio added yet.
+            </p>
+          )}
+        </div>
+
+        {/* SUBTLE ACCOUNT META INFORMATION */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '12px',
+          color: 'var(--text-tertiary)',
+          marginBottom: '32px'
+        }}>
+          <Calendar size={13} />
+          <span>Joined {joinDateStr}</span>
+        </div>
+
+        {/* MODERN ACTION BAR */}
+        <div style={{
+          display: 'flex',
+          gap: '12px',
+          width: '100%',
+          maxWidth: '360px'
+        }}>
+          <button
+            onClick={() => setIsEditing(true)}
+            className="btn btn-primary"
+            style={{
+              flex: 1,
+              padding: '11px 20px',
+              fontSize: '14px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              borderRadius: '24px',
+              boxShadow: 'var(--shadow-sm)',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <Edit3 size={15} /> Edit Profile
+          </button>
+
+          <button
+            onClick={() => setActiveTab('settings')}
+            className="btn btn-secondary"
+            style={{
+              flex: 1,
+              padding: '11px 20px',
+              fontSize: '14px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              borderRadius: '24px',
+              cursor: 'pointer'
+            }}
+          >
+            <Settings size={15} /> Settings
+          </button>
+        </div>
+
       </div>
     );
   }
 
   // ----------------------------------------------------
-  // 2. EDIT PROFILE MODE (SEPARATE OVERLAY EXPERIENCE)
+  // 2. EDIT PROFILE MODE (DEDICATED MODAL / OVERLAY UX)
   // ----------------------------------------------------
   return (
-    <div style={{ maxWidth: '640px', margin: '0 auto', padding: '12px 4px' }}>
-      <div className="card" style={{ padding: '28px 24px' }}>
-        
-        {/* Header Bar */}
+    <div style={{ maxWidth: '520px', margin: '0 auto', padding: '24px 16px' }}>
+      
+      {/* Header Bar */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: '24px',
+        paddingBottom: '14px',
+        borderBottom: '1px solid var(--border-color)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            onClick={() => setIsEditing(false)}
+            className="btn btn-secondary"
+            style={{ padding: '6px 12px', borderRadius: '10px', display: 'flex', alignItems: 'center' }}
+            title="Cancel"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.4px', margin: 0 }}>
+            Edit Profile
+          </h2>
+        </div>
+      </div>
+
+      {/* Feedback Alert */}
+      {statusMessage && (
         <div style={{
+          padding: '12px 16px',
+          borderRadius: '12px',
+          marginBottom: '20px',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '24px',
-          paddingBottom: '12px',
-          borderBottom: '1px solid var(--border-color)'
+          gap: '10px',
+          fontSize: '14px',
+          fontWeight: 600,
+          backgroundColor: statusMessage.type === 'success' ? 'var(--accent-green-subtle)' : 'var(--accent-red-subtle)',
+          color: statusMessage.type === 'success' ? 'var(--accent-green)' : 'var(--accent-red)',
+          border: `1px solid ${statusMessage.type === 'success' ? 'var(--accent-green)' : 'var(--accent-red)'}`
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button
-              onClick={() => setIsEditing(false)}
-              className="btn btn-secondary"
-              style={{ padding: '6px 10px', borderRadius: '8px' }}
-              title="Cancel"
+          {statusMessage.type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
+          <span>{statusMessage.text}</span>
+        </div>
+      )}
+
+      <form onSubmit={handleSaveProfile}>
+        
+        {/* 1. Contextual Avatar Photo Editor */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '12px',
+          marginBottom: '28px'
+        }}>
+          <div style={{ position: 'relative', cursor: 'pointer' }}>
+            {imagePreview ? (
+              <img
+                src={imagePreview}
+                alt="Profile Preview"
+                style={{
+                  width: '100px',
+                  height: '100px',
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  border: '3px solid var(--border-color)',
+                  boxShadow: 'var(--shadow-sm)'
+                }}
+              />
+            ) : (
+              <div style={{
+                width: '100px',
+                height: '100px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--accent-blue-subtle)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <UserIcon size={48} color="var(--accent-blue)" />
+              </div>
+            )}
+
+            {/* Contextual Camera Badge Overlay */}
+            <label
+              style={{
+                position: 'absolute',
+                bottom: '2px',
+                right: '2px',
+                backgroundColor: 'var(--accent-blue)',
+                color: '#ffffff',
+                borderRadius: '50%',
+                padding: '7px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: 'var(--shadow-sm)',
+                border: '2px solid var(--bg-primary)'
+              }}
+              title="Change profile photo"
             >
-              <ArrowLeft size={16} />
-            </button>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.4px' }}>
-              Edit Profile
-            </h2>
+              <Camera size={14} />
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleImageFileUpload}
+                style={{ display: 'none' }}
+              />
+            </label>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+            <label
+              className="btn btn-secondary"
+              style={{
+                padding: '6px 14px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                borderRadius: '16px'
+              }}
+            >
+              Change Photo
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleImageFileUpload}
+                style={{ display: 'none' }}
+              />
+            </label>
+
+            {(userPreferences?.customAvatarUrl || selectedImageDataUri) && (
+              <button
+                type="button"
+                onClick={handleRevertToGoogleAvatar}
+                className="btn btn-secondary"
+                style={{
+                  padding: '6px 14px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  borderRadius: '16px',
+                  color: 'var(--accent-amber)'
+                }}
+              >
+                <RotateCcw size={12} style={{ marginRight: '4px' }} /> Use Google Photo
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Feedback Alert */}
-        {statusMessage && (
-          <div style={{
-            padding: '12px 16px',
-            borderRadius: '10px',
-            marginBottom: '20px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            fontSize: '14px',
-            fontWeight: 600,
-            backgroundColor: statusMessage.type === 'success' ? 'var(--accent-green-subtle)' : 'var(--accent-red-subtle)',
-            color: statusMessage.type === 'success' ? 'var(--accent-green)' : 'var(--accent-red)',
-            border: `1px solid ${statusMessage.type === 'success' ? 'var(--accent-green)' : 'var(--accent-red)'}`
-          }}>
-            {statusMessage.type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
-            <span>{statusMessage.text}</span>
-          </div>
-        )}
+        {/* 2. Display Name Input */}
+        <div style={{ marginBottom: '22px' }}>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+            Display Name
+          </label>
+          <input
+            type="text"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            placeholder="Your preferred display name"
+            className="form-input"
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              fontSize: '15px',
+              borderRadius: '12px',
+              border: '1px solid var(--border-color)',
+              backgroundColor: 'var(--bg-card)'
+            }}
+            required
+          />
+        </div>
 
-        <form onSubmit={handleSaveProfile}>
-          
-          {/* 1. Profile Picture Editing & Live Preview */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '12px',
-            marginBottom: '28px',
-            padding: '20px',
-            borderRadius: '12px',
-            backgroundColor: 'var(--bg-card-subtle)',
-            border: '1px solid var(--border-color)'
-          }}>
-            <div style={{ position: 'relative' }}>
-              {imagePreview ? (
-                <img
-                  src={imagePreview}
-                  alt="Profile Preview"
-                  style={{
-                    width: '88px',
-                    height: '88px',
-                    borderRadius: '50%',
-                    objectFit: 'cover',
-                    border: '2px solid var(--border-color)'
-                  }}
-                />
-              ) : (
-                <div style={{
-                  width: '88px',
-                  height: '88px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--accent-blue-subtle)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <UserIcon size={44} color="var(--accent-blue)" />
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
-              <label
-                className="btn btn-secondary"
-                style={{
-                  padding: '8px 14px',
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  borderRadius: '8px'
-                }}
-              >
-                <Camera size={14} /> Upload Photo
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={handleImageFileUpload}
-                  style={{ display: 'none' }}
-                />
-              </label>
-
-              {avatarUrlInput && (
-                <button
-                  type="button"
-                  onClick={handleRevertToGoogleAvatar}
-                  className="btn btn-secondary"
-                  style={{
-                    padding: '8px 14px',
-                    fontSize: '13px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    borderRadius: '8px',
-                    color: 'var(--accent-amber)'
-                  }}
-                >
-                  <RotateCcw size={14} /> Use Google Photo
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* 2. Application Display Name */}
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-              Display Name
+        {/* 3. Personal Bio Textarea */}
+        <div style={{ marginBottom: '32px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              Personal Bio
             </label>
-            <input
-              type="text"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              placeholder="Your preferred display name"
-              className="form-input"
-              style={{ width: '100%', padding: '12px 14px', fontSize: '14px', borderRadius: '8px' }}
-              required
-            />
+            <span style={{ fontSize: '12px', color: editBio.length > 160 ? 'var(--accent-red)' : 'var(--text-tertiary)' }}>
+              {editBio.length} / 160
+            </span>
           </div>
 
-          {/* 3. Personal Bio */}
-          <div style={{ marginBottom: '28px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                Personal Bio
-              </label>
-              <span style={{ fontSize: '12px', color: editBio.length > 160 ? 'var(--accent-red)' : 'var(--text-tertiary)' }}>
-                {editBio.length} / 160
-              </span>
-            </div>
+          <textarea
+            value={editBio}
+            onChange={(e) => setEditBio(e.target.value)}
+            maxLength={160}
+            rows={3}
+            placeholder="Building my future one system at a time."
+            className="form-input"
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              fontSize: '15px',
+              borderRadius: '12px',
+              border: '1px solid var(--border-color)',
+              backgroundColor: 'var(--bg-card)',
+              resize: 'none',
+              fontFamily: 'inherit',
+              lineHeight: '1.5'
+            }}
+          />
+        </div>
 
-            <textarea
-              value={editBio}
-              onChange={(e) => setEditBio(e.target.value)}
-              maxLength={160}
-              rows={3}
-              placeholder="Building my future one system at a time."
-              className="form-input"
-              style={{
-                width: '100%',
-                padding: '12px 14px',
-                fontSize: '14px',
-                borderRadius: '8px',
-                resize: 'none',
-                fontFamily: 'inherit'
-              }}
-            />
-          </div>
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+          <button
+            type="button"
+            onClick={() => setIsEditing(false)}
+            className="btn btn-secondary"
+            style={{ padding: '10px 20px', fontSize: '14px', fontWeight: 600, borderRadius: '20px' }}
+            disabled={saving}
+          >
+            Cancel
+          </button>
 
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-            <button
-              type="button"
-              onClick={() => setIsEditing(false)}
-              className="btn btn-secondary"
-              style={{ padding: '10px 18px', fontSize: '14px', borderRadius: '8px' }}
-              disabled={saving}
-            >
-              Cancel
-            </button>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={saving}
+            style={{ padding: '10px 24px', fontSize: '14px', fontWeight: 600, borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            {saving ? 'Saving...' : <><Save size={15} /> Save Changes</>}
+          </button>
+        </div>
 
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={saving}
-              style={{ padding: '10px 22px', fontSize: '14px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              {saving ? 'Saving...' : <><Save size={15} /> Save Changes</>}
-            </button>
-          </div>
-
-        </form>
-      </div>
+      </form>
     </div>
   );
 };

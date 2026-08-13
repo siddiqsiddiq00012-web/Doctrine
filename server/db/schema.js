@@ -24,7 +24,7 @@ export const userPreferences = sqliteTable('user_preferences', {
   bio: text('bio').default(''),
   customAvatarUrl: text('custom_avatar_url'),
   theme: text('theme').default('light').notNull(), // 'light' | 'dark' | 'system'
-  timeFormat: text('time_format').default('12h').notNull(), // '12h' | '24h'
+  timeFormat: text('time_format').default('12h').notNull(), // Standardized on '12h'
   weekStart: text('week_start').default('MONDAY').notNull(), // 'MONDAY' | 'SUNDAY'
   createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
   updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
@@ -85,4 +85,111 @@ export const taskExecutions = sqliteTable('task_executions', {
 }, (table) => ({
   dailyExecIdx: index('task_executions_daily_exec_idx').on(table.dailyExecutionId),
   taskKeyIdx: index('task_executions_key_idx').on(table.dailyExecutionId, table.taskKey),
+}));
+
+// Daily Summaries Table (Feature 2: 10:00 PM AI Daily Summary Persistence)
+export const dailySummaries = sqliteTable('daily_summaries', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(), // Format YYYY-MM-DD
+  summary: text('summary').notNull(), // Markdown formatted AI analysis
+  completionPercentage: real('completion_percentage').default(0).notNull(), // Deterministic percentage calculated backend-side
+  completedCount: integer('completed_count').default(0).notNull(),
+  totalTasksCount: integer('total_tasks_count').default(0).notNull(),
+  provider: text('provider').default('gemini').notNull(),
+  model: text('model').default('gemini-2.5-flash').notNull(),
+  generatedAt: text('generated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userDateSummaryIdx: uniqueIndex('daily_summaries_user_date_idx').on(table.userId, table.date),
+  userSummaryLookupIdx: index('daily_summaries_user_idx').on(table.userId),
+}));
+
+// Weekly Reviews Table (Feature 4: Sunday Weekly Review & Progress Tracking)
+export const weeklyReviews = sqliteTable('weekly_reviews', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  weekStartDate: text('week_start_date').notNull(), // Format YYYY-MM-DD
+  weekEndDate: text('week_end_date').notNull(), // Format YYYY-MM-DD
+  bodyWeightKg: real('body_weight_kg'),
+  flexedBicepCm: real('flexed_bicep_cm'),
+  chestCm: real('chest_cm'),
+  thighCm: real('thigh_cm'),
+  morningHeightCm: real('morning_height_cm'),
+  workoutPerformance: text('workout_performance').default('STRONGER'),
+  complexion: text('complexion').default('BRIGHTER'),
+  activeBreakouts: integer('active_breakouts').default(0),
+  hairShedding: text('hair_shedding').default('LESS'),
+  newBabyHairs: integer('new_baby_hairs', { mode: 'boolean' }).default(true),
+  sleepQuality: text('sleep_quality').default('BETTER'),
+  digestion: text('digestion').default('BETTER'),
+  energyLevels: text('energy_levels').default('HIGHER'),
+  protocolCompliancePct: real('protocol_compliance_pct').default(100),
+  verdict: text('verdict').default('ON_TRACK'),
+  refinementNotes: text('refinement_notes').default(''),
+  financesSaved: real('finances_saved').default(0),
+  financesSpent: real('finances_spent').default(0),
+  financesWhatOn: text('finances_what_on').default(''),
+  financesWhy: text('finances_why').default(''),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userWeekIdx: uniqueIndex('weekly_reviews_user_week_idx').on(table.userId, table.weekStartDate),
+  userReviewLookupIdx: index('weekly_reviews_user_idx').on(table.userId),
+}));
+
+// Progress Photos Table (Feature 4: Private Historical Transformation Photos)
+export const progressPhotos = sqliteTable('progress_photos', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  weeklyReviewId: text('weekly_review_id').notNull().references(() => weeklyReviews.id, { onDelete: 'cascade' }),
+  weekStartDate: text('week_start_date').notNull(),
+  category: text('category').notNull(), // 'physique' | 'face' | 'hair'
+  photoUrl: text('photo_url').notNull(),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  reviewCategoryIdx: uniqueIndex('progress_photos_review_cat_idx').on(table.weeklyReviewId, table.category),
+  userPhotoLookupIdx: index('progress_photos_user_idx').on(table.userId),
+}));
+
+// Weekly AI Summaries Table (Feature 4: Sunday Night AI Weekly Summary)
+export const weeklySummaries = sqliteTable('weekly_summaries', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  weeklyReviewId: text('weekly_review_id').notNull().references(() => weeklyReviews.id, { onDelete: 'cascade' }),
+  weekStartDate: text('week_start_date').notNull(),
+  summary: text('summary').notNull(),
+  completionPercentage: real('completion_percentage').default(0).notNull(),
+  provider: text('provider').default('gemini').notNull(),
+  model: text('model').default('gemini-2.5-flash').notNull(),
+  generatedAt: text('generated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userWeekSummaryIdx: uniqueIndex('weekly_summaries_user_week_idx').on(table.userId, table.weekStartDate),
+}));
+
+// Data Engineering Learning Sessions Table (Feature 5: Active Learning Tracker)
+export const deLearningSessions = sqliteTable('de_learning_sessions', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(), // YYYY-MM-DD
+  moduleName: text('module_name').notNull(),
+  topicName: text('topic_name').notNull(),
+  subtopicName: text('subtopic_name').notNull(),
+  plannedMinutes: integer('planned_minutes').default(60).notNull(),
+  actualMinutes: integer('actual_minutes').default(0).notNull(),
+  learningResource: text('learning_resource').default('').notNull(), // Video URL / Document / Course
+  whatILearned: text('what_i_learned').notNull(), // Mandatory explanation of learning evidence
+  confidenceRating: integer('confidence_rating').default(3).notNull(), // 1 to 5
+  status: text('status').default('COMPLETED').notNull(), // 'COMPLETED' | 'IN_PROGRESS' | 'REVIEW_REQUIRED' | 'DEFERRED'
+  activeRecallText: text('active_recall_text').default(''),
+  codeEvidence: text('code_evidence').default(''),
+  aiEvaluationText: text('ai_evaluation_text').default(''),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userSubtopicIdx: index('de_learning_sessions_user_subtopic_idx').on(table.userId, table.subtopicName),
+  userDateLookupIdx: index('de_learning_sessions_date_idx').on(table.userId, table.date),
 }));
