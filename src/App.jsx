@@ -1,5 +1,6 @@
 import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
+import { HomeView } from './components/HomeView';
 import { TodayView } from './components/TodayView';
 import { HistoryView } from './components/HistoryView';
 import { WeekView } from './components/WeekView';
@@ -39,6 +40,7 @@ const MainContent = () => {
 
   const renderTab = () => {
     switch (activeTab) {
+      case 'home': return <HomeView />;
       case 'today': return <TodayView />;
       case 'history': return <HistoryView />;
       case 'week': return <WeekView />;
@@ -48,7 +50,7 @@ const MainContent = () => {
       case 'inventory': return <InventoryView />;
       case 'dataeng': return <DataEngineeringView />;
       case 'settings': return <SettingsView />;
-      default: return <TodayView />;
+      default: return <HomeView />;
     }
   };
 
@@ -65,7 +67,7 @@ const MainContent = () => {
       }}>
         <div
           className="brand-title"
-          onClick={() => setActiveTab('today')}
+          onClick={() => setActiveTab('home')}
           style={{ cursor: 'pointer' }}
         >
           <ShieldCheck size={24} color="var(--accent-blue)" />

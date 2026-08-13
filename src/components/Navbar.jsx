@@ -1,11 +1,12 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { CheckSquare, Calendar, Clock, User, Dumbbell, Sparkles, Package, Terminal, Settings } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, Calendar, Clock, User, Dumbbell, Sparkles, Package, Terminal, Settings } from 'lucide-react';
 
 export const Navbar = () => {
   const { activeTab, setActiveTab } = useApp();
 
   const navItems = [
+    { id: 'home', label: 'Home', icon: LayoutDashboard },
     { id: 'today', label: 'Today', icon: CheckSquare },
     { id: 'history', label: 'History', icon: Clock },
     { id: 'week', label: 'Week', icon: Calendar },

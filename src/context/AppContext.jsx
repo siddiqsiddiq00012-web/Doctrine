@@ -32,7 +32,7 @@ export const AppProvider = ({ children }) => {
 
   const [user, setUser] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
-  const [activeTab, setActiveTab] = useState('today');
+  const [activeTab, setActiveTab] = useState('home');
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
 
   // User Preferences & Personal Profile State (Permanently standardized on 12-hour AM/PM)
