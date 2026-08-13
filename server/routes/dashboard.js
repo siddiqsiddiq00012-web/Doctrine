@@ -25,8 +25,11 @@ function getCurrentWeekRange(todayStr) {
 router.get('/', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
-    const todayDate = new Date().toISOString().split('T')[0];
-    const dateObj = new Date(todayDate + 'T00:00:00');
+    const todayDate = (req.query.date && typeof req.query.date === 'string' && req.query.date.match(/^\d{4}-\d{2}-\d{2}$/))
+      ? req.query.date
+      : new Date().toLocaleDateString('en-CA');
+    const [year, month, day] = todayDate.split('-').map(Number);
+    const dateObj = new Date(year, month - 1, day);
     const dayNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
     const dayOfWeek = dayNames[dateObj.getDay()];
 
@@ -116,6 +119,10 @@ router.get('/', requireAuth, async (req, res) => {
           category: b.category
         }));
       } else {
+        const totalScheduled = (dayDoctrine.timeBlocks || []).length;
+        result.today.totalTasksCount = totalScheduled;
+        result.today.completedCount = 0;
+        result.today.completionPercentage = 0;
         result.today.remainingPriorities = (dayDoctrine.timeBlocks || []).slice(0, 3).map(b => ({
           id: b.id,
           time: b.time,

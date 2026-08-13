@@ -27,12 +27,14 @@ export const HomeView = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/dashboard', { credentials: 'include' });
+      const todayStr = getTodayStr ? getTodayStr() : new Date().toLocaleDateString('en-CA');
+      const res = await fetch(`/api/dashboard?date=${todayStr}`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setDashboardData(data);
       } else {
-        setError('Failed to load dashboard data');
+        const errData = await res.json().catch(() => ({}));
+        setError(errData.error || errData.message || 'Failed to load dashboard data');
       }
     } catch (e) {
       console.error('Dashboard fetch error:', e);
