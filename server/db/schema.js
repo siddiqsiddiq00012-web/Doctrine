@@ -193,3 +193,34 @@ export const deLearningSessions = sqliteTable('de_learning_sessions', {
   userSubtopicIdx: index('de_learning_sessions_user_subtopic_idx').on(table.userId, table.subtopicName),
   userDateLookupIdx: index('de_learning_sessions_date_idx').on(table.userId, table.date),
 }));
+
+// Resource Stock Table (Feature 8: Resource Intelligence & Stock Persistence)
+export const resourceStock = sqliteTable('resource_stock', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  resourceId: text('resource_id').notNull(),
+  currentQty: real('current_qty').notNull(),
+  inCart: integer('in_cart', { mode: 'boolean' }).default(false).notNull(),
+  lastPurchased: text('last_purchased'),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userResourceStockIdx: uniqueIndex('resource_stock_user_res_idx').on(table.userId, table.resourceId),
+}));
+
+// Resource Events Table (Feature 8: Resource Event History)
+export const resourceEvents = sqliteTable('resource_events', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  resourceId: text('resource_id').notNull(),
+  resourceName: text('resource_name').notNull(),
+  eventType: text('event_type').notNull(), // 'PURCHASE' | 'CONSUMPTION' | 'ADJUSTMENT'
+  amount: real('amount').notNull(),
+  unit: text('unit').notNull(),
+  date: text('date').notNull(), // YYYY-MM-DD
+  notes: text('notes').default(''),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userResourceIdx: index('resource_events_user_res_idx').on(table.userId, table.resourceId),
+  userDateIdx: index('resource_events_user_date_idx').on(table.userId, table.date),
+}));

@@ -549,23 +549,106 @@ export const AppProvider = ({ children }) => {
     console.warn('Blocked: Doctrine resource definitions are immutable. User cannot delete resources.');
   };
 
+  // Resource Intelligence & Event State (Feature 8)
+  const [resourceState, setResourceState] = useState({
+    resources: [],
+    purchasePlan: { FOOD: [], SUPPLEMENTS: [], SKINCARE: [], HAIR: [] },
+    summary: { totalResources: 0, fullyStockedCount: 0, needsPurchaseCount: 0, totalEstimatedCost: 0 },
+    events: []
+  });
+
+  const fetchResources = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await fetch('/api/resources', { credentials: 'include' });
+      if (res.ok) {
+        const data = await safeJsonParse(res);
+        setResourceState({
+          resources: data.resources || [],
+          purchasePlan: data.purchasePlan || { FOOD: [], SUPPLEMENTS: [], SKINCARE: [], HAIR: [] },
+          summary: data.summary || { totalResources: 0, fullyStockedCount: 0, needsPurchaseCount: 0, totalEstimatedCost: 0 },
+          events: data.events || []
+        });
+        if (data.resources) {
+          setInventory(data.resources);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch resources:', e);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      fetchResources();
+    }
+  }, [user, fetchResources]);
+
+  const recordResourceEvent = async ({ resourceId, eventType, amount, unit, date, notes }) => {
+    if (!user) return { success: false, error: 'Unauthenticated' };
+    try {
+      const res = await fetch('/api/resources/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ resourceId, eventType, amount, unit, date, notes })
+      });
+      const data = await safeJsonParse(res);
+      if (res.ok) {
+        setResourceState({
+          resources: data.resources || [],
+          purchasePlan: data.purchasePlan || { FOOD: [], SUPPLEMENTS: [], SKINCARE: [], HAIR: [] },
+          summary: data.summary || { totalResources: 0, fullyStockedCount: 0, needsPurchaseCount: 0, totalEstimatedCost: 0 },
+          events: data.events || []
+        });
+        if (data.resources) setInventory(data.resources);
+        return { success: true };
+      } else {
+        return { success: false, error: data.message || data.error || 'Failed to record event' };
+      }
+    } catch (e) {
+      console.error('Record resource event error:', e);
+      return { success: false, error: e.message };
+    }
+  };
+
+  const toggleResourceInCart = async (resourceId) => {
+    if (!user) return;
+    try {
+      const res = await fetch('/api/resources/toggle-cart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ resourceId })
+      });
+      const data = await safeJsonParse(res);
+      if (res.ok) {
+        setResourceState({
+          resources: data.resources || [],
+          purchasePlan: data.purchasePlan || { FOOD: [], SUPPLEMENTS: [], SKINCARE: [], HAIR: [] },
+          summary: data.summary || { totalResources: 0, fullyStockedCount: 0, needsPurchaseCount: 0, totalEstimatedCost: 0 },
+          events: data.events || []
+        });
+        if (data.resources) setInventory(data.resources);
+      }
+    } catch (e) {
+      console.error('Toggle resource cart error:', e);
+    }
+  };
 
   const toggleInCart = (id) => {
-    setInventory(prev => prev.map(item => item.id === id ? { ...item, inCart: !item.inCart } : item));
+    toggleResourceInCart(id);
   };
 
   const markPurchasedAndRestock = (id) => {
-    setInventory(prev => prev.map(item => {
-      if (item.id === id) {
-        return {
-          ...item,
-          currentQty: item.currentQty + item.purchaseQty,
-          inCart: false,
-          lastPurchased: getTodayStr()
-        };
-      }
-      return item;
-    }));
+    const item = inventory.find(i => i.id === id);
+    const purchaseAmount = item ? (item.needed > 0 ? item.needed : item.purchaseQty) : 1;
+    recordResourceEvent({
+      resourceId: id,
+      eventType: 'PURCHASE',
+      amount: purchaseAmount,
+      unit: item?.unit || 'pcs'
+    });
   };
 
   // Workout actions
@@ -666,6 +749,10 @@ export const AppProvider = ({ children }) => {
       setWaterLiters,
       updateDailyNotes,
       inventory,
+      resourceState,
+      fetchResources,
+      recordResourceEvent,
+      toggleResourceInCart,
       updateInventoryItem,
       addInventoryItem,
       deleteInventoryItem,
