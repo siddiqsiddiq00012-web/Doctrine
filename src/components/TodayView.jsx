@@ -368,46 +368,55 @@ export const TodayView = () => {
         </div>
 
         <div>
-          {dayDoctrine.timeBlocks.map((block) => {
-            const isCompleted = !!currentLog.completedTasks[block.id]?.completed;
-            const timestamp = currentLog.completedTasks[block.id]?.timestamp;
+          {(() => {
+            const sortedTimeBlocks = [...dayDoctrine.timeBlocks].sort((a, b) => {
+              const aDone = !!currentLog.completedTasks[a.id]?.completed;
+              const bDone = !!currentLog.completedTasks[b.id]?.completed;
+              if (aDone === bDone) return 0;
+              return aDone ? 1 : -1;
+            });
 
-            return (
-              <div
-                key={block.id}
-                className={`check-item ${isCompleted ? 'completed' : ''}`}
-                onClick={() => toggleTask(selectedDate, block.id)}
-              >
-                <div className="checkbox-custom">
-                  {isCompleted && <Check size={14} />}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className="task-time">{block.time}</span>
-                    {timestamp && (
-                      <span style={{ fontSize: '11px', color: 'var(--accent-green)', fontWeight: 600 }}>
-                        Done at {timestamp}
-                      </span>
-                    )}
-                  </div>
-                  <div className="task-text" style={{ marginTop: '2px' }}>
-                    {block.activity}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div className="task-category">{block.category}</div>
-                  </div>
+            return sortedTimeBlocks.map((block) => {
+              const isCompleted = !!currentLog.completedTasks[block.id]?.completed;
+              const timestamp = currentLog.completedTasks[block.id]?.timestamp;
 
-                  {/* FEATURE 12: WHY THIS MATTERS CONTEXTUAL SNIPPET */}
-                  <ContextSnippet
-                    taskKey={block.id}
-                    category={block.category}
-                    activity={block.activity}
-                    dayName={dayName}
-                  />
+              return (
+                <div
+                  key={block.id}
+                  className={`check-item ${isCompleted ? 'completed' : ''}`}
+                  onClick={() => toggleTask(selectedDate, block.id)}
+                >
+                  <div className="checkbox-custom">
+                    {isCompleted && <Check size={14} />}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className="task-time">{block.time}</span>
+                      {timestamp && (
+                        <span style={{ fontSize: '11px', color: 'var(--accent-green)', fontWeight: 600 }}>
+                          Done at {timestamp}
+                        </span>
+                      )}
+                    </div>
+                    <div className="task-text" style={{ marginTop: '2px' }}>
+                      {block.activity}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div className="task-category">{block.category}</div>
+                    </div>
+
+                    {/* FEATURE 12: WHY THIS MATTERS CONTEXTUAL SNIPPET */}
+                    <ContextSnippet
+                      taskKey={block.id}
+                      category={block.category}
+                      activity={block.activity}
+                      dayName={dayName}
+                    />
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            });
+          })()}
         </div>
       </div>
 
@@ -443,44 +452,39 @@ export const TodayView = () => {
         </div>
 
         <div className="grid-2">
-          <div
-            className={`check-item ${currentLog.anchors.massShakeTaken ? 'completed' : ''}`}
-            onClick={() => toggleAnchor(selectedDate, 'massShakeTaken')}
-          >
-            <div className="checkbox-custom">
-              {currentLog.anchors.massShakeTaken && <Check size={14} />}
-            </div>
-            <div>
-              <div className="task-text">Mass Shake (~1000 kcal) Drank</div>
-              <div className="task-category">Anabolic Anchor</div>
-            </div>
-          </div>
+          {(() => {
+            const anchorItems = [
+              { key: 'massShakeTaken', title: 'Mass Shake (~1000 kcal) Drank', category: 'Anabolic Anchor' },
+              { key: 'amSkincare', title: 'Morning Skincare & SPF 50+ Completed', category: 'Skin Barrier Anchor' },
+              { key: 'pmSkincare', title: 'Evening Skincare Routine Completed', category: 'Skin Repair Anchor (Priority)' }
+            ];
 
-          <div
-            className={`check-item ${currentLog.anchors.amSkincare ? 'completed' : ''}`}
-            onClick={() => toggleAnchor(selectedDate, 'amSkincare')}
-          >
-            <div className="checkbox-custom">
-              {currentLog.anchors.amSkincare && <Check size={14} />}
-            </div>
-            <div>
-              <div className="task-text">Morning Skincare & SPF 50+ Completed</div>
-              <div className="task-category">Skin Barrier Anchor</div>
-            </div>
-          </div>
+            const sortedAnchors = [...anchorItems].sort((a, b) => {
+              const aDone = !!currentLog.anchors[a.key];
+              const bDone = !!currentLog.anchors[b.key];
+              if (aDone === bDone) return 0;
+              return aDone ? 1 : -1;
+            });
 
-          <div
-            className={`check-item ${currentLog.anchors.pmSkincare ? 'completed' : ''}`}
-            onClick={() => toggleAnchor(selectedDate, 'pmSkincare')}
-          >
-            <div className="checkbox-custom">
-              {currentLog.anchors.pmSkincare && <Check size={14} />}
-            </div>
-            <div>
-              <div className="task-text">Evening Skincare Routine Completed</div>
-              <div className="task-category">Skin Repair Anchor (Priority)</div>
-            </div>
-          </div>
+            return sortedAnchors.map((item) => {
+              const isChecked = !!currentLog.anchors[item.key];
+              return (
+                <div
+                  key={item.key}
+                  className={`check-item ${isChecked ? 'completed' : ''}`}
+                  onClick={() => toggleAnchor(selectedDate, item.key)}
+                >
+                  <div className="checkbox-custom">
+                    {isChecked && <Check size={14} />}
+                  </div>
+                  <div>
+                    <div className="task-text">{item.title}</div>
+                    <div className="task-category">{item.category}</div>
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </div>
       </div>
 
@@ -497,23 +501,32 @@ export const TodayView = () => {
         </div>
 
         <div className="grid-2">
-          {PREPARED_FOR_TOMORROW_TEMPLATES.map((item) => {
-            const isChecked = !!currentLog.preparedForTomorrow[item.id];
-            return (
-              <div
-                key={item.id}
-                className={`check-item ${isChecked ? 'completed' : ''}`}
-                onClick={() => togglePrepItem(selectedDate, item.id)}
-              >
-                <div className="checkbox-custom">
-                  {isChecked && <Check size={14} />}
+          {(() => {
+            const sortedPrep = [...PREPARED_FOR_TOMORROW_TEMPLATES].sort((a, b) => {
+              const aDone = !!currentLog.preparedForTomorrow[a.id];
+              const bDone = !!currentLog.preparedForTomorrow[b.id];
+              if (aDone === bDone) return 0;
+              return aDone ? 1 : -1;
+            });
+
+            return sortedPrep.map((item) => {
+              const isChecked = !!currentLog.preparedForTomorrow[item.id];
+              return (
+                <div
+                  key={item.id}
+                  className={`check-item ${isChecked ? 'completed' : ''}`}
+                  onClick={() => togglePrepItem(selectedDate, item.id)}
+                >
+                  <div className="checkbox-custom">
+                    {isChecked && <Check size={14} />}
+                  </div>
+                  <div className="task-text" style={{ fontSize: '14px' }}>
+                    {item.text}
+                  </div>
                 </div>
-                <div className="task-text" style={{ fontSize: '14px' }}>
-                  {item.text}
-                </div>
-              </div>
-            );
-          })}
+              );
+            });
+          })()}
         </div>
       </div>
 
