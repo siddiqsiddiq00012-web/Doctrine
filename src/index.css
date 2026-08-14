@@ -353,18 +353,36 @@ body {
 .bottom-nav {
   position: fixed;
   bottom: 0;
-  left: 0;
-  right: 0;
-  height: 68px;
-  background: rgba(255, 255, 255, 0.92);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 640px;
+  height: 64px;
+  background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid var(--border-color);
+  border-left: 1px solid transparent;
+  border-right: 1px solid transparent;
   display: flex;
   justify-content: space-around;
   align-items: center;
   z-index: 1000;
-  padding: 0 8px;
+  padding: 0 12px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="dark"] .bottom-nav {
+  background: rgba(28, 28, 30, 0.88);
+}
+
+@media (min-width: 640px) {
+  .bottom-nav {
+    border-radius: 20px 20px 0 0;
+    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+  }
 }
 
 .nav-item {
@@ -375,13 +393,14 @@ body {
   background: none;
   border: none;
   color: var(--text-tertiary);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
-  gap: 3px;
+  gap: 2px;
   cursor: pointer;
   flex: 1;
   padding: 6px 0;
-  transition: color 0.15s ease;
+  transition: color 0.15s ease, transform 0.15s ease;
+  border-radius: 10px;
 }
 
 .nav-item.active {
@@ -389,9 +408,29 @@ body {
   font-weight: 600;
 }
 
+.nav-item:hover {
+  color: var(--text-primary);
+}
+
+.nav-item.active:hover {
+  color: var(--accent-blue);
+}
+
 .nav-icon {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
+}
+
+/* Overflow Menu Animation */
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 /* Buttons */

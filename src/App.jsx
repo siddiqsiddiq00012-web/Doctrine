@@ -13,10 +13,11 @@ import { SkincareView } from './components/SkincareView';
 import { SettingsView } from './components/SettingsView';
 import { LoginView } from './components/LoginView';
 import { Navbar } from './components/Navbar';
-import { ShieldCheck, LogOut, User as UserIcon } from 'lucide-react';
+import { OverflowMenu } from './components/OverflowMenu';
+import { ShieldCheck, User as UserIcon } from 'lucide-react';
 
 const MainContent = () => {
-  const { user, loadingAuth, logout, activeTab, setActiveTab, userPreferences, activeAvatarUrl } = useApp();
+  const { user, loadingAuth, activeTab, setActiveTab, userPreferences, activeAvatarUrl } = useApp();
 
   if (loadingAuth) {
     return (
@@ -29,7 +30,7 @@ const MainContent = () => {
         color: 'var(--text-secondary, #888)',
         fontSize: '14px'
       }}>
-        Verifying Doctrine OS Security Session...
+        Verifying Doctrine Security Session...
       </div>
     );
   }
@@ -65,64 +66,52 @@ const MainContent = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '12px 20px'
+        padding: '12px 16px',
+        marginBottom: '16px',
+        borderBottom: '1px solid var(--border-color)'
       }}>
         <div
           className="brand-title"
           onClick={() => setActiveTab('home')}
-          style={{ cursor: 'pointer' }}
+          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '18px', letterSpacing: '-0.3px' }}
         >
-          <ShieldCheck size={24} color="var(--accent-blue)" />
-          <span>DOCTRINE OS</span>
-          <span className="brand-badge">Self-Mastery</span>
+          <ShieldCheck size={22} color="var(--accent-blue)" />
+          <span>DOCTRINE</span>
         </div>
 
-        {/* AUTHENTICATED USER BAR */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* HEADER ACTIONS: MINIMAL PROFILE CONTROL + OVERFLOW MENU */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
             onClick={() => setActiveTab('profile')}
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              background: 'none',
-              border: 'none',
+              justifyContent: 'center',
+              width: '36px',
+              height: '36px',
+              background: activeTab === 'profile' ? 'var(--accent-blue-subtle)' : 'none',
+              border: activeTab === 'profile' ? '1px solid var(--accent-blue)' : '1px solid var(--border-color)',
+              borderRadius: '50%',
               cursor: 'pointer',
-              padding: '4px 8px',
-              borderRadius: '8px',
-              transition: 'background-color 0.15s ease'
+              padding: 0,
+              overflow: 'hidden',
+              transition: 'all 0.15s ease'
             }}
-            title="Open Profile"
+            aria-label="View profile"
+            title={displayName}
           >
             {activeAvatarUrl ? (
               <img
                 src={activeAvatarUrl}
                 alt={displayName}
-                style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid var(--border-color)', objectFit: 'cover' }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             ) : (
-              <UserIcon size={20} color="var(--text-secondary)" />
+              <UserIcon size={18} color={activeTab === 'profile' ? 'var(--accent-blue)' : 'var(--text-secondary)'} />
             )}
-            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-              {displayName}
-            </span>
           </button>
 
-          <button
-            onClick={logout}
-            title="Logout"
-            className="btn btn-secondary"
-            style={{
-              padding: '6px 10px',
-              fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              borderRadius: '6px'
-            }}
-          >
-            <LogOut size={14} /> Logout
-          </button>
+          <OverflowMenu />
         </div>
       </header>
 

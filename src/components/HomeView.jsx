@@ -133,8 +133,8 @@ export const HomeView = () => {
       <div className="card" style={{ padding: '24px', marginBottom: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <LayoutDashboard size={14} color="var(--accent-blue)" /> DOCTRINE COMMAND CENTER • {formattedDate}
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+              DOCTRINE COMMAND CENTER • {formattedDate}
             </div>
             <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.5px', marginTop: '4px', color: 'var(--text-primary)' }}>
               Welcome back, {displayName}
@@ -232,8 +232,8 @@ export const HomeView = () => {
         {/* TODAY'S PRIORITIES CARD */}
         <div className="card" style={{ marginBottom: 0, padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Clock size={16} color="var(--accent-amber, #F59E0B)" /> Today's Scheduled Priorities
+            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Today's Scheduled Priorities
             </span>
             <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('today')} style={{ fontSize: '12px', color: 'var(--accent-blue)' }}>
               Checklist →
@@ -270,8 +270,8 @@ export const HomeView = () => {
         {/* DATA ENGINEERING COMMAND CARD */}
         <div className="card" style={{ marginBottom: 0, padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Terminal size={16} color="var(--accent-blue)" /> Data Engineering Tracker
+            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Data Engineering Tracker
             </span>
             <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('dataeng')} style={{ fontSize: '12px', color: 'var(--accent-blue)' }}>
               Continue →
@@ -309,8 +309,8 @@ export const HomeView = () => {
         {/* SKINCARE & GROOMING COMMAND CARD */}
         <div className="card" style={{ marginBottom: 0, padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Sparkles size={16} color="var(--accent-purple)" /> Skincare & Grooming
+            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Skincare & Grooming
             </span>
             <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('skincare')} style={{ fontSize: '12px', color: 'var(--accent-blue)' }}>
               Routine →
@@ -360,8 +360,8 @@ export const HomeView = () => {
         {/* RESOURCE ALERTS CARD */}
         <div className="card" style={{ marginBottom: 0, padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <ShoppingBag size={16} color="var(--accent-purple)" /> Resource Intelligence
+            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Resource Intelligence
             </span>
             <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('inventory')} style={{ fontSize: '12px', color: 'var(--accent-blue)' }}>
               Resources →
@@ -397,8 +397,8 @@ export const HomeView = () => {
         {/* WEEKLY COMPLIANCE CARD */}
         <div className="card" style={{ marginBottom: 0, padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Calendar size={16} color="var(--accent-blue)" /> Weekly Compliance
+            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Weekly Compliance
             </span>
             <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('week')} style={{ fontSize: '12px', color: 'var(--accent-blue)' }}>
               Week →
@@ -430,8 +430,8 @@ export const HomeView = () => {
       {/* STORED DAILY AI SUMMARY PREVIEW CARD */}
       <div className="card" style={{ marginBottom: '16px', padding: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-          <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Sparkles size={16} color="var(--accent-purple)" /> Daily AI Summary Preview
+          <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
+            Daily AI Summary Preview
           </span>
           <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('today')} style={{ fontSize: '12px', color: 'var(--accent-blue)' }}>
             Summary →
@@ -454,8 +454,8 @@ export const HomeView = () => {
       {/* RECENT HISTORICAL STREAM CARD */}
       <div className="card" style={{ marginBottom: 0, padding: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <History size={16} color="var(--accent-blue)" /> Recent Execution Stream
+          <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
+            Recent Execution Stream
           </span>
           <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('history')} style={{ fontSize: '12px', color: 'var(--accent-blue)' }}>
             Full History →

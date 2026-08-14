@@ -11,12 +11,14 @@ import {
   Mail,
   Calendar,
   Save,
-  ArrowLeft
+  ArrowLeft,
+  LogOut
 } from 'lucide-react';
 
 export const ProfileView = () => {
   const {
     user,
+    logout,
     userPreferences,
     updateUserPreferences,
     uploadUserAvatar,
@@ -292,48 +294,73 @@ export const ProfileView = () => {
         {/* MODERN ACTION BAR */}
         <div style={{
           display: 'flex',
+          flexDirection: 'column',
           gap: '12px',
           width: '100%',
           maxWidth: '360px'
         }}>
-          <button
-            onClick={() => setIsEditing(true)}
-            className="btn btn-primary"
-            style={{
-              flex: 1,
-              padding: '11px 20px',
-              fontSize: '14px',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              borderRadius: '24px',
-              boxShadow: 'var(--shadow-sm)',
-              border: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            <Edit3 size={15} /> Edit Profile
-          </button>
+          <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+            <button
+              onClick={() => setIsEditing(true)}
+              className="btn btn-primary"
+              style={{
+                flex: 1,
+                padding: '11px 20px',
+                fontSize: '14px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                borderRadius: '24px',
+                boxShadow: 'var(--shadow-sm)',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              <Edit3 size={15} /> Edit Profile
+            </button>
+
+            <button
+              onClick={() => setActiveTab('settings')}
+              className="btn btn-secondary"
+              style={{
+                flex: 1,
+                padding: '11px 20px',
+                fontSize: '14px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                borderRadius: '24px',
+                cursor: 'pointer'
+              }}
+            >
+              <Settings size={15} /> Settings
+            </button>
+          </div>
 
           <button
-            onClick={() => setActiveTab('settings')}
+            onClick={logout}
             className="btn btn-secondary"
             style={{
-              flex: 1,
-              padding: '11px 20px',
-              fontSize: '14px',
+              width: '100%',
+              padding: '10px 20px',
+              fontSize: '13px',
               fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '8px',
+              gap: '6px',
               borderRadius: '24px',
-              cursor: 'pointer'
+              color: 'var(--accent-red)',
+              borderColor: 'var(--border-color)',
+              cursor: 'pointer',
+              marginTop: '4px'
             }}
           >
-            <Settings size={15} /> Settings
+            <LogOut size={14} /> Log Out
           </button>
         </div>
 
