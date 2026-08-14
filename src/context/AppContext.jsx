@@ -340,7 +340,9 @@ export const AppProvider = ({ children }) => {
           anchors,
           preparedForTomorrow,
           waterLiters: execution.waterLiters || 0,
-          notes: execution.notes || ''
+          notes: execution.notes || '',
+          rawExecution: execution,
+          rawTasks: tasks
         };
 
         setDailyLogs(prev => ({ ...prev, [dateStr]: formattedLog }));

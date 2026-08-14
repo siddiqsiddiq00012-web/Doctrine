@@ -106,6 +106,65 @@ export const HistoryView = () => {
     return d.toISOString().split('T')[0];
   };
 
+  // Performance Report Calculations for selected historical date
+  const rawTasks = currentLog?.rawTasks || [];
+  const rawExec = currentLog?.rawExecution;
+
+  const completedTasksList = rawTasks.length > 0
+    ? rawTasks.filter(t => t.status === 'COMPLETED')
+    : (dayDoctrine.timeBlocks || []).filter(b => !!currentLog?.completedTasks[b.id]?.completed).map(b => ({
+        id: b.id,
+        taskName: b.activity,
+        category: b.category,
+        time: b.time,
+        status: 'COMPLETED',
+        completedAt: currentLog?.completedTasks[b.id]?.timestamp
+      }));
+
+  const missedTasksList = rawTasks.length > 0
+    ? rawTasks.filter(t => t.status !== 'COMPLETED' && t.status !== 'SKIPPED')
+    : (dayDoctrine.timeBlocks || []).filter(b => !currentLog?.completedTasks[b.id]?.completed).map(b => ({
+        id: b.id,
+        taskName: b.activity,
+        category: b.category,
+        time: b.time,
+        status: 'MISSED'
+      }));
+
+  const totalTrackedCount = rawExec?.totalTasksCount ?? (completedTasksList.length + missedTasksList.length);
+  const completedCount = rawExec?.completedCount ?? completedTasksList.length;
+  const missedCount = rawExec?.missedCount ?? missedTasksList.length;
+
+  const completionPct = totalTrackedCount > 0
+    ? Math.round((completedCount / totalTrackedCount) * 100)
+    : 0;
+
+  // Exact Hydration evaluation (0 L is preserved as 0 L; only null/undefined/unrecorded is 'Not recorded')
+  const waterLitersVal = currentLog?.waterLiters;
+  const hydrationText = (waterLitersVal !== null && waterLitersVal !== undefined && currentLog)
+    ? `${waterLitersVal} L`
+    : 'Not recorded';
+
+  // Namaz & Anchors metrics
+  const namazCompletedCount = currentLog?.namaz
+    ? ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].filter(p => !!currentLog.namaz[p]).length
+    : null;
+  const namazText = namazCompletedCount !== null ? `${namazCompletedCount} / 5 Prayed` : 'Not recorded';
+
+  const anchorsCompletedCount = currentLog?.anchors
+    ? ['massShakeTaken', 'amSkincare', 'pmSkincare'].filter(a => !!currentLog.anchors[a]).length
+    : null;
+  const anchorsText = anchorsCompletedCount !== null ? `${anchorsCompletedCount} / 3 Anchors` : 'Not recorded';
+
+  const getDeterministicSummary = () => {
+    if (totalTrackedCount === 0) return 'No tracked tasks recorded for this date.';
+    if (completedCount === totalTrackedCount) return `Complete execution. All ${totalTrackedCount} tracked tasks for this day were completed.`;
+    if (completionPct >= 80) return `Strong execution day. ${completedCount} of ${totalTrackedCount} scheduled tasks were completed, with ${missedCount} missed task${missedCount === 1 ? '' : 's'}.`;
+    if (completionPct >= 50) return `Partial execution day. ${completedCount} of ${totalTrackedCount} scheduled tasks were completed. ${missedCount} task${missedCount === 1 ? '' : 's'} remained incomplete.`;
+    if (completedCount > 0) return `Minimum execution day. ${completedCount} of ${totalTrackedCount} tasks completed, with ${missedCount} missed tasks.`;
+    return `Zero tasks completed on this day. ${missedCount} tracked tasks remained incomplete.`;
+  };
+
   return (
     <div className="history-view workspace-fluid" style={{ paddingBottom: '40px' }}>
       {/* BRAND & HEADER BAR */}
@@ -304,29 +363,207 @@ export const HistoryView = () => {
           ) : (
             /* ACTUAL RECORDED HISTORICAL DAY */
             <div>
-              {/* HISTORICAL DAY METRICS HEADER */}
-              <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              {/* DAILY PERFORMANCE REPORT */}
+              <div className="card" style={{ padding: '24px', marginBottom: '20px', borderLeft: '4px solid var(--accent-blue)' }}>
+                {/* Report Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                   <div>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-                      {formattedSelectedDate} {isToday ? '• TODAY' : ''}
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent-blue)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                      DAILY PERFORMANCE REPORT
                     </div>
-                    <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
-                      {dayDoctrine.day} — {dayDoctrine.theme}
+                    <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px', letterSpacing: '-0.5px' }}>
+                      {formattedSelectedDate} {isToday ? '• TODAY' : ''}
                     </h2>
+                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                      {dayDoctrine.day} — {dayDoctrine.theme}
+                    </div>
                   </div>
 
+                  {/* Completion Score Badge */}
                   <div style={{ textAlign: 'right' }}>
-                    <div className="badge badge-success" style={{ fontSize: '14px', padding: '6px 12px', fontWeight: 700 }}>
-                      {currentLog.completedTasks ? Object.values(currentLog.completedTasks).filter(t => t.completed).length : 0} Tasks Done
+                    <div style={{
+                      fontSize: '28px',
+                      fontWeight: 800,
+                      color: totalTrackedCount === 0 ? 'var(--text-tertiary)' : completionPct >= 80 ? 'var(--accent-green, #10B981)' : completionPct >= 50 ? 'var(--accent-amber, #F59E0B)' : 'var(--accent-red, #EF4444)',
+                      lineHeight: '1'
+                    }}>
+                      {totalTrackedCount === 0 ? 'N/A' : `${completionPct}%`}
+                    </div>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '4px' }}>
+                      {totalTrackedCount === 0 ? 'No tracked tasks' : `${completedCount} of ${totalTrackedCount} tasks completed`}
                     </div>
                   </div>
                 </div>
 
-                {/* WATER & TAHAJJUD QUICK STATUS */}
-                <div style={{ display: 'flex', gap: '16px', marginTop: '14px', fontSize: '13px', color: 'var(--text-secondary)', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
-                  <div>Water: <strong>{currentLog.waterLiters || 0} L</strong></div>
-                  <div>Tahajjud: <strong>{currentLog.tahajjud ? '★ Prayed' : '○ Pending'}</strong></div>
+                {/* Progress Bar */}
+                {totalTrackedCount > 0 && (
+                  <div style={{ marginTop: '16px' }}>
+                    <div className="progress-container" style={{ height: '8px', marginBottom: '0' }}>
+                      <div
+                        className="progress-fill"
+                        style={{
+                          width: `${completionPct}%`,
+                          backgroundColor: completionPct >= 80 ? 'var(--accent-green, #10B981)' : completionPct >= 50 ? 'var(--accent-amber, #F59E0B)' : 'var(--accent-red, #EF4444)'
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+
+                {/* COMPLETED TASKS BREAKDOWN */}
+                <div style={{ marginTop: '24px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-green, #10B981)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <CheckCircle2 size={15} /> COMPLETED ({completedTasksList.length})
+                  </div>
+
+                  {completedTasksList.length === 0 ? (
+                    <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontStyle: 'italic', padding: '8px 12px', background: 'var(--card-subtle-bg, #F9FAFB)', borderRadius: '8px' }}>
+                      No tasks completed on this date.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {completedTasksList.map((t, idx) => (
+                        <div
+                          key={t.id || t.taskKey || idx}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '10px 14px',
+                            borderRadius: '10px',
+                            background: 'var(--bg-app, #F8F9FA)',
+                            border: '1px solid var(--border-color)',
+                            gap: '12px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                            <CheckCircle2 size={16} color="var(--accent-green, #10B981)" style={{ flexShrink: 0 }} />
+                            <div>
+                              <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                {t.taskName || t.activity}
+                              </span>
+                              {t.category && (
+                                <span className="badge badge-purple" style={{ fontSize: '10px', marginLeft: '8px' }}>
+                                  {t.category}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {(t.completedAt || t.time) && (
+                            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-green, #10B981)', whiteSpace: 'nowrap' }}>
+                              {t.completedAt ? `Done at ${new Date(t.completedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}` : t.time}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* MISSED TASKS BREAKDOWN */}
+                <div style={{ marginTop: '20px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-red, #EF4444)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <XCircle size={15} /> MISSED ({missedTasksList.length})
+                  </div>
+
+                  {missedTasksList.length === 0 ? (
+                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontStyle: 'italic', padding: '8px 12px', background: 'var(--card-subtle-bg, #F9FAFB)', borderRadius: '8px' }}>
+                      Zero missed tasks recorded for this date.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {missedTasksList.map((t, idx) => (
+                        <div
+                          key={t.id || t.taskKey || idx}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '10px 14px',
+                            borderRadius: '10px',
+                            background: 'var(--bg-app, #F8F9FA)',
+                            border: '1px solid var(--border-color)',
+                            gap: '12px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                            <XCircle size={16} color="var(--accent-red, #EF4444)" style={{ flexShrink: 0 }} />
+                            <div>
+                              <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                {t.taskName || t.activity}
+                              </span>
+                              {t.category && (
+                                <span className="badge badge-warning" style={{ fontSize: '10px', marginLeft: '8px' }}>
+                                  {t.category}
+                                </span>
+                              )}
+                              {t.failureReason && (
+                                <div style={{ fontSize: '12px', color: 'var(--accent-red)', marginTop: '2px' }}>
+                                  Reason: {t.failureReason.reasonText || t.failureReason.category}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {t.time && (
+                            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
+                              {t.time}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* PERFORMANCE METRICS SUMMARY */}
+                <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '12px' }}>
+                    PERFORMANCE METRICS
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
+                    <div style={{ background: 'var(--card-subtle-bg, #F9FAFB)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Completion</div>
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>{totalTrackedCount === 0 ? 'N/A' : `${completionPct}%`}</div>
+                    </div>
+
+                    <div style={{ background: 'var(--card-subtle-bg, #F9FAFB)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Completed</div>
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--accent-green, #10B981)', marginTop: '2px' }}>{completedCount} tasks</div>
+                    </div>
+
+                    <div style={{ background: 'var(--card-subtle-bg, #F9FAFB)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Missed</div>
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: missedCount > 0 ? 'var(--accent-red, #EF4444)' : 'var(--text-primary)', marginTop: '2px' }}>{missedCount} tasks</div>
+                    </div>
+
+                    <div style={{ background: 'var(--card-subtle-bg, #F9FAFB)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Hydration</div>
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>{hydrationText}</div>
+                    </div>
+
+                    <div style={{ background: 'var(--card-subtle-bg, #F9FAFB)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Namaz</div>
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>{namazText}</div>
+                    </div>
+
+                    <div style={{ background: 'var(--card-subtle-bg, #F9FAFB)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Anchors</div>
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>{anchorsText}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* DAILY SUMMARY / INTERPRETATION */}
+                <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '6px' }}>
+                    DAILY SUMMARY
+                  </div>
+                  <div style={{ fontSize: '14px', lineHeight: '1.6', color: 'var(--text-primary)', background: 'var(--card-subtle-bg, #F9FAFB)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                    {getDeterministicSummary()}
+                  </div>
                 </div>
               </div>
 
