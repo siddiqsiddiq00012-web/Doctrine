@@ -110,19 +110,24 @@ router.post('/avatar', requireAuth, async (req, res) => {
     if (mimeType.includes('png')) ext = 'png';
     else if (mimeType.includes('webp')) ext = 'webp';
 
-    // Delete existing custom avatar file for user
-    deleteUserAvatarFiles(userId);
+    let relativeUrl = null;
+    try {
+      if (!fs.existsSync(uploadsAvatarsDir)) {
+        fs.mkdirSync(uploadsAvatarsDir, { recursive: true });
+      }
+      deleteUserAvatarFiles(userId);
+      const filename = `avatar_${userId}_${Date.now()}.${ext}`;
+      const filePath = path.join(uploadsAvatarsDir, filename);
+      fs.writeFileSync(filePath, buffer);
+      relativeUrl = `/uploads/avatars/${filename}`;
+    } catch (diskErr) {
+      console.warn('[Avatar Storage] Disk write disallowed, storing Data URI directly in DB:', diskErr.message);
+      relativeUrl = avatarData;
+    }
 
-    // Save image to uploads/avatars/
-    const filename = `avatar_${userId}_${Date.now()}.${ext}`;
-    const filePath = path.join(uploadsAvatarsDir, filename);
-
-    fs.writeFileSync(filePath, buffer);
-
-    const relativeUrl = `/uploads/avatars/${filename}`;
     const nowIso = new Date().toISOString();
 
-    // Update database record with lightweight URL path
+    // Update database record with avatar URL / Data URI
     const [existing] = await db
       .select()
       .from(userPreferences)

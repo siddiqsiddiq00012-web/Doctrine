@@ -258,41 +258,41 @@ export const PROTOCOLS = {
 
 export const INITIAL_INVENTORY = [
   // Food
-  { id: 'inv-1', name: 'Eggs', category: 'FOOD', currentQty: 24, unit: 'pcs', minStockLevel: 6, purchaseQty: 30, estimatedPrice: 200 },
-  { id: 'inv-2', name: 'Full-Fat Buffalo Milk', category: 'FOOD', currentQty: 3, unit: 'liters', minStockLevel: 1, purchaseQty: 5, estimatedPrice: 220 },
-  { id: 'inv-3', name: 'Rolled Oats', category: 'FOOD', currentQty: 1.5, unit: 'kg', minStockLevel: 0.5, purchaseQty: 2, estimatedPrice: 250 },
-  { id: 'inv-4', name: 'Curd / Yogurt', category: 'FOOD', currentQty: 1, unit: 'kg', minStockLevel: 0.5, purchaseQty: 2, estimatedPrice: 100 },
-  { id: 'inv-5', name: 'Bananas', category: 'FOOD', currentQty: 12, unit: 'pcs', minStockLevel: 4, purchaseQty: 12, estimatedPrice: 60 },
-  { id: 'inv-6', name: 'Peanut Butter', category: 'FOOD', currentQty: 800, unit: 'g', minStockLevel: 300, purchaseQty: 1000, estimatedPrice: 450 },
-  { id: 'inv-7', name: 'Raw Peanuts', category: 'FOOD', currentQty: 1, unit: 'kg', minStockLevel: 0.3, purchaseQty: 1, estimatedPrice: 180 },
-  { id: 'inv-8', name: 'Honey', category: 'FOOD', currentQty: 500, unit: 'g', minStockLevel: 150, purchaseQty: 500, estimatedPrice: 280 },
-  { id: 'inv-9', name: 'Ghee', category: 'FOOD', currentQty: 500, unit: 'g', minStockLevel: 200, purchaseQty: 500, estimatedPrice: 350 },
-  { id: 'inv-10', name: 'Flaxseed Powder', category: 'FOOD', currentQty: 250, unit: 'g', minStockLevel: 100, purchaseQty: 500, estimatedPrice: 120 },
-  { id: 'inv-11', name: 'Fenugreek (Methi) Seeds', category: 'FOOD', currentQty: 200, unit: 'g', minStockLevel: 50, purchaseQty: 250, estimatedPrice: 80 },
-  { id: 'inv-12', name: 'Beetroot & Carrots', category: 'FOOD', currentQty: 2, unit: 'kg', minStockLevel: 0.5, purchaseQty: 2, estimatedPrice: 100 },
-  { id: 'inv-13', name: 'Papaya', category: 'FOOD', currentQty: 1, unit: 'pcs', minStockLevel: 1, purchaseQty: 2, estimatedPrice: 90 },
+  { id: 'inv-1', name: 'Eggs', category: 'FOOD', currentQty: 0, unit: 'pcs', minStockLevel: 6, purchaseQty: 30, estimatedPrice: 200 },
+  { id: 'inv-2', name: 'Full-Fat Buffalo Milk', category: 'FOOD', currentQty: 0, unit: 'liters', minStockLevel: 1, purchaseQty: 5, estimatedPrice: 220 },
+  { id: 'inv-3', name: 'Rolled Oats', category: 'FOOD', currentQty: 0, unit: 'kg', minStockLevel: 0.5, purchaseQty: 2, estimatedPrice: 250 },
+  { id: 'inv-4', name: 'Curd / Yogurt', category: 'FOOD', currentQty: 0, unit: 'kg', minStockLevel: 0.5, purchaseQty: 2, estimatedPrice: 100 },
+  { id: 'inv-5', name: 'Bananas', category: 'FOOD', currentQty: 0, unit: 'pcs', minStockLevel: 4, purchaseQty: 12, estimatedPrice: 60 },
+  { id: 'inv-6', name: 'Peanut Butter', category: 'FOOD', currentQty: 0, unit: 'g', minStockLevel: 300, purchaseQty: 1000, estimatedPrice: 450 },
+  { id: 'inv-7', name: 'Raw Peanuts', category: 'FOOD', currentQty: 0, unit: 'kg', minStockLevel: 0.3, purchaseQty: 1, estimatedPrice: 180 },
+  { id: 'inv-8', name: 'Honey', category: 'FOOD', currentQty: 0, unit: 'g', minStockLevel: 150, purchaseQty: 500, estimatedPrice: 280 },
+  { id: 'inv-9', name: 'Ghee', category: 'FOOD', currentQty: 0, unit: 'g', minStockLevel: 200, purchaseQty: 500, estimatedPrice: 350 },
+  { id: 'inv-10', name: 'Flaxseed Powder', category: 'FOOD', currentQty: 0, unit: 'g', minStockLevel: 100, purchaseQty: 500, estimatedPrice: 120 },
+  { id: 'inv-11', name: 'Fenugreek (Methi) Seeds', category: 'FOOD', currentQty: 0, unit: 'g', minStockLevel: 50, purchaseQty: 250, estimatedPrice: 80 },
+  { id: 'inv-12', name: 'Beetroot & Carrots', category: 'FOOD', currentQty: 0, unit: 'kg', minStockLevel: 0.5, purchaseQty: 2, estimatedPrice: 100 },
+  { id: 'inv-13', name: 'Papaya', category: 'FOOD', currentQty: 0, unit: 'pcs', minStockLevel: 1, purchaseQty: 2, estimatedPrice: 90 },
 
   // Supplements
-  { id: 'inv-14', name: 'Biotin (2,500-5,000 mcg)', category: 'SUPPLEMENTS', currentQty: 45, unit: 'capsules', minStockLevel: 15, purchaseQty: 60, estimatedPrice: 450 },
-  { id: 'inv-15', name: 'MSM (1,000 mg)', category: 'SUPPLEMENTS', currentQty: 60, unit: 'tablets', minStockLevel: 20, purchaseQty: 60, estimatedPrice: 650 },
-  { id: 'inv-16', name: 'Vitamin D3 + K2 (100 mcg)', category: 'SUPPLEMENTS', currentQty: 30, unit: 'softgels', minStockLevel: 10, purchaseQty: 60, estimatedPrice: 500 },
-  { id: 'inv-17', name: 'Vitamin E (100-150 IU)', category: 'SUPPLEMENTS', currentQty: 20, unit: 'capsules', minStockLevel: 10, purchaseQty: 30, estimatedPrice: 200 },
-  { id: 'inv-18', name: 'Amla Powder', category: 'SUPPLEMENTS', currentQty: 150, unit: 'g', minStockLevel: 50, purchaseQty: 250, estimatedPrice: 150 },
+  { id: 'inv-14', name: 'Biotin (2,500-5,000 mcg)', category: 'SUPPLEMENTS', currentQty: 0, unit: 'capsules', minStockLevel: 15, purchaseQty: 60, estimatedPrice: 450 },
+  { id: 'inv-15', name: 'MSM (1,000 mg)', category: 'SUPPLEMENTS', currentQty: 0, unit: 'tablets', minStockLevel: 20, purchaseQty: 60, estimatedPrice: 650 },
+  { id: 'inv-16', name: 'Vitamin D3 + K2 (100 mcg)', category: 'SUPPLEMENTS', currentQty: 0, unit: 'softgels', minStockLevel: 10, purchaseQty: 60, estimatedPrice: 500 },
+  { id: 'inv-17', name: 'Vitamin E (100-150 IU)', category: 'SUPPLEMENTS', currentQty: 0, unit: 'capsules', minStockLevel: 10, purchaseQty: 30, estimatedPrice: 200 },
+  { id: 'inv-18', name: 'Amla Powder', category: 'SUPPLEMENTS', currentQty: 0, unit: 'g', minStockLevel: 50, purchaseQty: 250, estimatedPrice: 150 },
 
   // Skincare
-  { id: 'inv-19', name: 'Gentle Cleanser', category: 'SKINCARE', currentQty: 1, unit: 'bottle', minStockLevel: 1, purchaseQty: 1, estimatedPrice: 400 },
-  { id: 'inv-20', name: 'SPF 50+ PA++++ Sunscreen', category: 'SKINCARE', currentQty: 2, unit: 'tubes', minStockLevel: 1, purchaseQty: 2, estimatedPrice: 750 },
-  { id: 'inv-21', name: 'Ceramide Moisturiser', category: 'SKINCARE', currentQty: 1, unit: 'jar', minStockLevel: 1, purchaseQty: 1, estimatedPrice: 450 },
-  { id: 'inv-22', name: '2% Salicylic Acid Serum', category: 'SKINCARE', currentQty: 1, unit: 'bottle', minStockLevel: 1, purchaseQty: 1, estimatedPrice: 550 },
-  { id: 'inv-23', name: '10% Niacinamide Serum', category: 'SKINCARE', currentQty: 1, unit: 'bottle', minStockLevel: 1, purchaseQty: 1, estimatedPrice: 600 },
-  { id: 'inv-24', name: 'Multani Mitti', category: 'SKINCARE', currentQty: 300, unit: 'g', minStockLevel: 100, purchaseQty: 500, estimatedPrice: 100 },
-  { id: 'inv-25', name: 'Rose Water', category: 'SKINCARE', currentQty: 200, unit: 'ml', minStockLevel: 50, purchaseQty: 250, estimatedPrice: 90 },
+  { id: 'inv-19', name: 'Gentle Cleanser', category: 'SKINCARE', currentQty: 0, unit: 'bottle', minStockLevel: 1, purchaseQty: 1, estimatedPrice: 400 },
+  { id: 'inv-20', name: 'SPF 50+ PA++++ Sunscreen', category: 'SKINCARE', currentQty: 0, unit: 'tubes', minStockLevel: 1, purchaseQty: 2, estimatedPrice: 750 },
+  { id: 'inv-21', name: 'Ceramide Moisturiser', category: 'SKINCARE', currentQty: 0, unit: 'jar', minStockLevel: 1, purchaseQty: 1, estimatedPrice: 450 },
+  { id: 'inv-22', name: '2% Salicylic Acid Serum', category: 'SKINCARE', currentQty: 0, unit: 'bottle', minStockLevel: 1, purchaseQty: 1, estimatedPrice: 550 },
+  { id: 'inv-23', name: '10% Niacinamide Serum', category: 'SKINCARE', currentQty: 0, unit: 'bottle', minStockLevel: 1, purchaseQty: 1, estimatedPrice: 600 },
+  { id: 'inv-24', name: 'Multani Mitti', category: 'SKINCARE', currentQty: 0, unit: 'g', minStockLevel: 100, purchaseQty: 500, estimatedPrice: 100 },
+  { id: 'inv-25', name: 'Rose Water', category: 'SKINCARE', currentQty: 0, unit: 'ml', minStockLevel: 50, purchaseQty: 250, estimatedPrice: 90 },
 
   // Hair
-  { id: 'inv-26', name: 'Mild Shampoo', category: 'HAIR', currentQty: 1, unit: 'bottle', minStockLevel: 1, purchaseQty: 1, estimatedPrice: 350 },
-  { id: 'inv-27', name: 'Infused Hair Growth Oil Blend', category: 'HAIR', currentQty: 200, unit: 'ml', minStockLevel: 50, purchaseQty: 200, estimatedPrice: 500 },
-  { id: 'inv-28', name: 'Fresh Aloe Vera', category: 'HAIR', currentQty: 3, unit: 'leaves', minStockLevel: 1, purchaseQty: 5, estimatedPrice: 80 },
-  { id: 'inv-29', name: '0.25mm Dermaroller', category: 'HAIR', currentQty: 1, unit: 'pc', minStockLevel: 1, purchaseQty: 1, estimatedPrice: 400 }
+  { id: 'inv-26', name: 'Mild Shampoo', category: 'HAIR', currentQty: 0, unit: 'bottle', minStockLevel: 1, purchaseQty: 1, estimatedPrice: 350 },
+  { id: 'inv-27', name: 'Infused Hair Growth Oil Blend', category: 'HAIR', currentQty: 0, unit: 'ml', minStockLevel: 50, purchaseQty: 200, estimatedPrice: 500 },
+  { id: 'inv-28', name: 'Fresh Aloe Vera', category: 'HAIR', currentQty: 0, unit: 'leaves', minStockLevel: 1, purchaseQty: 5, estimatedPrice: 80 },
+  { id: 'inv-29', name: '0.25mm Dermaroller', category: 'HAIR', currentQty: 0, unit: 'pc', minStockLevel: 1, purchaseQty: 1, estimatedPrice: 400 }
 ];
 
 export const PREPARED_FOR_TOMORROW_TEMPLATES = [

@@ -46,8 +46,25 @@ export const AppProvider = ({ children }) => {
     reducedMotion: 'system' // 'system' | 'reduced'
   });
 
-  // Backend DB Daily Executions cache
-  const [dailyLogs, setDailyLogs] = useState({});
+  // Backend DB Daily Executions cache with LocalStorage persistence fallback
+  const [dailyLogs, setDailyLogs] = useState(() => {
+    try {
+      const saved = localStorage.getItem('doctrine_daily_logs');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (dailyLogs && Object.keys(dailyLogs).length > 0) {
+        localStorage.setItem('doctrine_daily_logs', JSON.stringify(dailyLogs));
+      }
+    } catch (e) {
+      console.error('Failed to save daily logs to local storage:', e);
+    }
+  }, [dailyLogs]);
 
   // Local storage fallbacks for inventory, workout logs, sunday reviews, data engineering
   const [inventory, setInventory] = useState(() => {
