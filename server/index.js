@@ -156,19 +156,39 @@ app.use((req, res, next) => {
   next();
 });
 
-// Mount API Endpoints
+// Mount API Endpoints (supporting both /api/xxx and /xxx for Vercel Serverless Function routing)
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
+
 app.use('/api/history', historyRoutes);
+app.use('/history', historyRoutes);
+
 app.use('/api/user', userRoutes);
+app.use('/user', userRoutes);
+
 app.use('/api/summary', summaryRoutes);
+app.use('/summary', summaryRoutes);
+
 app.use('/api/weekly', weeklyRoutes);
+app.use('/weekly', weeklyRoutes);
+
 app.use('/api/de', deRoutes);
+app.use('/de', deRoutes);
+
 app.use('/api/resources', resourcesRoutes);
+app.use('/resources', resourcesRoutes);
+
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/dashboard', dashboardRoutes);
+
 app.use('/api/skincare', skincareRoutes);
+app.use('/skincare', skincareRoutes);
 
 // Health Check Endpoint
 app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString(), environment: isVercel ? 'vercel-serverless' : 'standalone-node' });
+});
+app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString(), environment: isVercel ? 'vercel-serverless' : 'standalone-node' });
 });
 
