@@ -129,19 +129,19 @@ export const HomeView = () => {
   return (
     <div className="home-view" style={{ maxWidth: '840px', margin: '0 auto', paddingBottom: '40px' }}>
       
-      {/* COMMAND CENTER HEADER */}
-      <div className="card" style={{ padding: '24px', marginBottom: '16px' }}>
+      {/* COMMAND CENTER HERO BANNER */}
+      <div className="hero-banner">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
               DOCTRINE COMMAND CENTER • {formattedDate}
             </div>
-            <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.5px', marginTop: '4px', color: 'var(--text-primary)' }}>
+            <h1 style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-0.6px', marginTop: '4px', color: 'var(--text-primary)' }}>
               Welcome back, {displayName}
             </h1>
             {today.dayTheme && (
               <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px', fontWeight: 500 }}>
-                Theme: <strong style={{ color: 'var(--accent-purple)' }}>{today.dayTheme}</strong>
+                Day Theme: <strong style={{ color: 'var(--accent-purple)' }}>{today.dayTheme}</strong>
               </div>
             )}
           </div>
@@ -166,10 +166,10 @@ export const HomeView = () => {
 
       {/* DYNAMIC HIGHEST-PRIORITY ACTION BANNER */}
       {primaryAction && (
-        <div className="card" style={{
-          background: 'linear-gradient(135deg, var(--bg-card) 0%, var(--card-subtle-bg, #F9FAFB) 100%)',
+        <div className="card interactive" onClick={() => setActiveTab(primaryAction.targetTab)} style={{
+          background: 'var(--bg-card)',
           borderColor: 'var(--accent-blue)',
-          borderWidth: '1.5px',
+          borderLeft: '4px solid var(--accent-blue)',
           padding: '18px 20px',
           marginBottom: '16px'
         }}>
@@ -190,7 +190,7 @@ export const HomeView = () => {
 
             <button
               className="btn btn-primary"
-              onClick={() => setActiveTab(primaryAction.targetTab)}
+              onClick={(e) => { e.stopPropagation(); setActiveTab(primaryAction.targetTab); }}
               style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px', fontSize: '14px' }}
             >
               Take Action <ArrowRight size={16} />
@@ -205,7 +205,7 @@ export const HomeView = () => {
           padding: '16px 20px',
           marginBottom: '16px',
           borderLeft: '4px solid var(--accent-amber)',
-          background: 'var(--bg-app)'
+          background: 'var(--bg-card)'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
             <div>
@@ -241,7 +241,7 @@ export const HomeView = () => {
           </div>
 
           {(today.remainingPriorities || []).length === 0 ? (
-            <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--accent-green, #10B981)', fontSize: '13px', fontWeight: 600 }}>
+            <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--accent-green)', fontSize: '13px', fontWeight: 600 }}>
               ✓ All scheduled time-block tasks for today are completed!
             </div>
           ) : (
@@ -352,11 +352,6 @@ export const HomeView = () => {
           )}
         </div>
 
-      </div>
-
-      {/* TWO COLUMN GRID: RESOURCE ALERTS + WEEKLY PROGRESS */}
-      <div className="grid-2" style={{ marginBottom: '16px', gap: '16px' }}>
-        
         {/* RESOURCE ALERTS CARD */}
         <div className="card" style={{ marginBottom: 0, padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
@@ -373,20 +368,20 @@ export const HomeView = () => {
               ⚠️ Unable to load resources status
             </div>
           ) : resources.isFullyStocked ? (
-            <div style={{ padding: '16px 0', color: 'var(--accent-green, #10B981)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ padding: '16px 0', color: 'var(--accent-green)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <CheckCircle2 size={16} /> All Doctrine resources are fully stocked
             </div>
           ) : (
             <div>
-              <div style={{ fontSize: '12px', color: 'var(--accent-amber, #F59E0B)', fontWeight: 600, marginBottom: '8px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--accent-amber)', fontWeight: 600, marginBottom: '8px' }}>
                 ⚠️ {resources.needsAttentionCount} Item(s) Need Purchase/Restock
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {(resources.itemsNeeded || []).map((item) => (
-                  <div key={item.id} style={{ fontSize: '12px', color: 'var(--text-primary)', padding: '6px 8px', background: 'var(--card-subtle-bg, #F9FAFB)', borderRadius: '6px', display: 'flex', justifyContent: 'space-between' }}>
+                  <div key={item.id} style={{ fontSize: '12px', color: 'var(--text-primary)', padding: '6px 8px', background: 'var(--bg-app)', borderRadius: '6px', display: 'flex', justifyContent: 'space-between' }}>
                     <span>{item.name}</span>
-                    <strong style={{ color: 'var(--accent-amber, #F59E0B)' }}>Need {item.needed} {item.unit}</strong>
+                    <strong style={{ color: 'var(--accent-amber)' }}>Need {item.needed} {item.unit}</strong>
                   </div>
                 ))}
               </div>
@@ -394,6 +389,11 @@ export const HomeView = () => {
           )}
         </div>
 
+      </div>
+
+      {/* UN-BOXED SECONDARY STREAMS: WEEKLY COMPLIANCE & AI SUMMARY */}
+      <div className="grid-2" style={{ marginBottom: '16px', gap: '16px' }}>
+        
         {/* WEEKLY COMPLIANCE CARD */}
         <div className="card" style={{ marginBottom: 0, padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
@@ -413,7 +413,7 @@ export const HomeView = () => {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '8px' }}>
                 <span>Recorded Days: <strong>{weeklyProgress.recordedDaysCount}</strong></span>
-                <span>Weekly Avg: <strong style={{ color: 'var(--accent-green, #10B981)' }}>{weeklyProgress.weeklyAveragePct}%</strong></span>
+                <span>Weekly Avg: <strong style={{ color: 'var(--accent-green)' }}>{weeklyProgress.weeklyAveragePct}%</strong></span>
               </div>
 
               {weeklyReview.isSunday && (
@@ -425,79 +425,66 @@ export const HomeView = () => {
           )}
         </div>
 
-      </div>
+        {/* STORED DAILY AI SUMMARY PREVIEW CARD */}
+        <div className="card" style={{ marginBottom: 0, padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Daily AI Summary Preview
+            </span>
+            <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('today')} style={{ fontSize: '12px', color: 'var(--accent-blue)' }}>
+              Summary →
+            </button>
+          </div>
 
-      {/* STORED DAILY AI SUMMARY PREVIEW CARD */}
-      <div className="card" style={{ marginBottom: '16px', padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-          <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
-            Daily AI Summary Preview
-          </span>
-          <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('today')} style={{ fontSize: '12px', color: 'var(--accent-blue)' }}>
-            Summary →
-          </button>
+          {dailyAiSummary.status === 'error' ? (
+            <div style={{ color: '#EF4444', fontSize: '13px' }}>⚠️ Unable to load daily AI summary</div>
+          ) : dailyAiSummary.hasSummary ? (
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--bg-app)', padding: '12px', borderRadius: '8px', lineHeight: '1.5' }}>
+              "{dailyAiSummary.summary.length > 180 ? dailyAiSummary.summary.substring(0, 180) + '...' : dailyAiSummary.summary}"
+            </div>
+          ) : (
+            <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+              Daily AI summary not generated yet for today. Summaries generate automatically at 10:00 PM or via manual trigger on Today's view.
+            </div>
+          )}
         </div>
 
-        {dailyAiSummary.status === 'error' ? (
-          <div style={{ color: '#EF4444', fontSize: '13px' }}>⚠️ Unable to load daily AI summary</div>
-        ) : dailyAiSummary.hasSummary ? (
-          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--card-subtle-bg, #F9FAFB)', padding: '12px', borderRadius: '8px', lineHeight: '1.5' }}>
-            "{dailyAiSummary.summary.length > 180 ? dailyAiSummary.summary.substring(0, 180) + '...' : dailyAiSummary.summary}"
-          </div>
-        ) : (
-          <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
-            Daily AI summary not generated yet for today. Summaries generate automatically at 10:00 PM or via manual trigger on Today's view.
-          </div>
-        )}
       </div>
 
-      {/* RECENT HISTORICAL STREAM CARD */}
-      <div className="card" style={{ marginBottom: 0, padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
-            Recent Execution Stream
-          </span>
-          <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('history')} style={{ fontSize: '12px', color: 'var(--accent-blue)' }}>
-            Full History →
-          </button>
-        </div>
+      {/* UN-BOXED RECENT EXECUTION STREAM SECTION */}
+      <div className="section-header">
+        <h2 className="section-title">Recent Execution Stream</h2>
+        <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('history')} style={{ fontSize: '12px', color: 'var(--accent-blue)' }}>
+          Full History →
+        </button>
+      </div>
 
-        {recentHistory.status === 'error' ? (
-          <div style={{ color: '#EF4444', fontSize: '13px' }}>⚠️ Unable to load recent history</div>
-        ) : (!recentHistory.days || recentHistory.days.length === 0) ? (
-          <div style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>No recent historical records logged yet.</div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {(recentHistory.days || []).map((item) => (
-              <div
-                key={item.date}
-                onClick={() => setActiveTab('history')}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '10px 12px',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  cursor: 'pointer'
-                }}
-              >
-                <div>
-                  <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{item.date}</span>
-                  <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>{item.dayOfWeek}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{item.completedCount} / {item.totalTasksCount}</span>
-                  <span className={`badge ${item.completionPercentage >= 80 ? 'badge-success' : 'badge-purple'}`} style={{ fontWeight: 700 }}>
-                    {item.completionPercentage}%
-                  </span>
-                </div>
+      {recentHistory.status === 'error' ? (
+        <div style={{ color: '#EF4444', fontSize: '13px', marginBottom: '16px' }}>⚠️ Unable to load recent history</div>
+      ) : (!recentHistory.days || recentHistory.days.length === 0) ? (
+        <div style={{ fontSize: '13px', color: 'var(--text-tertiary)', marginBottom: '16px' }}>No recent historical records logged yet.</div>
+      ) : (
+        <div className="unboxed-list">
+          {(recentHistory.days || []).map((item) => (
+            <div
+              key={item.date}
+              className="row-item interactive"
+              onClick={() => setActiveTab('history')}
+            >
+              <div>
+                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{item.date}</span>
+                <span style={{ color: 'var(--text-secondary)', marginLeft: '8px', fontSize: '13px' }}>{item.dayOfWeek}</span>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{item.completedCount} / {item.totalTasksCount}</span>
+                <span className={`badge ${item.completionPercentage >= 80 ? 'badge-success' : 'badge-purple'}`} style={{ fontWeight: 700 }}>
+                  {item.completionPercentage}%
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
     </div>
   );

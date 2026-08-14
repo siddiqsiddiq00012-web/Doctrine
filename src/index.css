@@ -144,6 +144,68 @@ body {
   margin-bottom: 16px;
 }
 
+/* Un-boxed Section Headers & Typography Hierarchy */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--text-primary);
+}
+
+.section-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Un-boxed Row Stream Items */
+.unboxed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.row-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.row-item.interactive {
+  cursor: pointer;
+}
+
+.row-item.interactive:hover {
+  border-color: var(--border-active);
+  background: var(--bg-card-subtle);
+}
+
+/* Command Center Hero Banner */
+.hero-banner {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--accent-blue);
+  border-radius: var(--radius-card);
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
 /* Checkbox Items */
 .check-item {
   display: flex;
