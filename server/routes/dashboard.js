@@ -187,12 +187,14 @@ router.get(['/', ''], requireAuth, async (req, res) => {
       result.dataEngineering = { status: 'error', errorMessage: 'Unable to load Data Engineering status' };
     }
 
-    // 3. RESOURCE ALERTS
+    // 3. RESOURCE ALERTS & FORECASTS
     try {
       const dbStocks = await db.select().from(resourceStock).where(eq(resourceStock.userId, userId));
       const stockMap = new Map(dbStocks.map(s => [s.resourceId, s.currentQty]));
 
       const itemsNeeded = [];
+      const forecastAlerts = [];
+
       (INITIAL_INVENTORY || []).forEach(item => {
         const currentQty = stockMap.has(item.id) ? stockMap.get(item.id) : item.currentQty;
         const required = item.purchaseQty || (item.minStockLevel ? item.minStockLevel * 2 : 1);
@@ -209,13 +211,29 @@ router.get(['/', ''], requireAuth, async (req, res) => {
             unit: item.unit
           });
         }
+
+        // Check 7-day projected depletion
+        const dailyRate = item.id === 'inv-1' ? 3 : item.id === 'inv-2' ? 0.5 : item.minStockLevel ? (item.minStockLevel / 7) : 0.1;
+        const daysRemaining = dailyRate > 0 ? currentQty / dailyRate : 999;
+        if (daysRemaining <= 7 || currentQty <= item.minStockLevel) {
+          forecastAlerts.push({
+            id: item.id,
+            name: item.name,
+            currentQty,
+            unit: item.unit,
+            daysRemaining: Math.round(daysRemaining * 10) / 10,
+            status: daysRemaining <= 3 ? 'PROJECTED DEPLETION' : 'PURCHASE RECOMMENDED'
+          });
+        }
       });
 
       result.resources = {
         status: 'ok',
         needsAttentionCount: itemsNeeded.length,
         itemsNeeded: itemsNeeded.slice(0, 3),
-        isFullyStocked: itemsNeeded.length === 0
+        isFullyStocked: itemsNeeded.length === 0,
+        forecastAlertsCount: forecastAlerts.length,
+        forecastAlerts: forecastAlerts.slice(0, 3)
       };
     } catch (err) {
       console.error('[Dashboard] Resources query failed:', err);

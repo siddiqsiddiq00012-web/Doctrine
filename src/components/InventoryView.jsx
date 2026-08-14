@@ -12,7 +12,11 @@ import {
   Minus,
   History,
   TrendingUp,
-  ShoppingCart
+  ShoppingCart,
+  Calendar,
+  Clock,
+  HelpCircle,
+  Sparkles
 } from 'lucide-react';
 
 export const InventoryView = () => {
@@ -23,8 +27,9 @@ export const InventoryView = () => {
     toggleResourceInCart
   } = useApp();
 
-  const [activeSubTab, setActiveSubTab] = useState('inventory'); // 'inventory' | 'to_buy' | 'history'
+  const [activeSubTab, setActiveSubTab] = useState('inventory'); // 'inventory' | 'forecast' | 'to_buy' | 'history'
   const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [forecastFilter, setForecastFilter] = useState('ALL'); // 'ALL' | 'DEPLETION' | 'PURCHASE_RECOMMENDED' | 'SUFFICIENT'
 
   // Stock Adjustment State
   const [adjustingItemId, setAdjustingItemId] = useState(null);
@@ -43,6 +48,14 @@ export const InventoryView = () => {
 
   // Derived Purchase Plan items
   const purchasePlanItems = resourcesList.filter(item => item.needed > 0 || item.currentQty <= item.minStockLevel || item.inCart);
+  
+  // Forecast alerts (Items running out within 7 days or requiring purchase)
+  const forecastAlerts = resourcesList.filter(i =>
+    i.forecast?.forecastState === 'PROJECTED DEPLETION' ||
+    i.forecast?.forecastState === 'PURCHASE RECOMMENDED' ||
+    i.forecast?.forecastState === 'LOW STOCK'
+  );
+
   const summaryMetrics = resourceState.summary || {
     totalResources: resourcesList.length,
     fullyStockedCount: resourcesList.filter(i => i.currentQty >= (i.required || 1)).length,
@@ -64,6 +77,25 @@ export const InventoryView = () => {
       return <span className="badge badge-warning">NEEDS PURCHASE</span>;
     }
     return <span className="badge badge-purple">PARTIALLY STOCKED</span>;
+  };
+
+  const getForecastStateBadge = (forecastState, daysToDepletion) => {
+    if (forecastState === 'PROJECTED DEPLETION') {
+      return <span className="badge badge-danger">PROJECTED DEPLETION ({daysToDepletion != null ? `${daysToDepletion}d left` : 'Out of stock'})</span>;
+    }
+    if (forecastState === 'PURCHASE RECOMMENDED') {
+      return <span className="badge badge-warning">PURCHASE RECOMMENDED</span>;
+    }
+    if (forecastState === 'LOW STOCK') {
+      return <span className="badge badge-warning">LOW STOCK</span>;
+    }
+    if (forecastState === 'SURPLUS') {
+      return <span className="badge badge-success">WELL STOCKED / SURPLUS</span>;
+    }
+    if (forecastState === 'INSUFFICIENT DATA') {
+      return <span className="badge badge-purple">INSUFFICIENT DATA</span>;
+    }
+    return <span className="badge badge-success">SUFFICIENT</span>;
   };
 
   const handleApplyStockAdjustment = async (itemId) => {
@@ -119,7 +151,7 @@ export const InventoryView = () => {
 
   const handleMarkPurchased = async (item) => {
     setErrorMessage(null);
-    const amount = item.needed > 0 ? item.needed : (item.purchaseQty || 1);
+    const amount = item.needed > 0 ? item.needed : (item.forecast?.recommendedPurchaseQty || item.purchaseQty || 1);
     await recordResourceEvent({
       resourceId: item.id,
       eventType: 'PURCHASE',
@@ -146,7 +178,7 @@ export const InventoryView = () => {
       }}>
         <ShieldCheck size={18} style={{ flexShrink: 0 }} />
         <span>
-          <strong>Doctrine Resource Intelligence:</strong> Requirements are derived directly from your Doctrine plan and cannot be added or deleted manually. Track stock, purchases, and consumption below.
+          <strong>Doctrine Resource Intelligence & Forecasting:</strong> Requirements are derived directly from your Doctrine plan and consumption logs. Track stock, forecast depletion dates, and plan purchases.
         </span>
       </div>
 
@@ -170,28 +202,38 @@ export const InventoryView = () => {
       )}
 
       {/* RESOURCE SUMMARY DASHBOARD */}
-      <div className="grid-3" style={{ marginBottom: '16px', gap: '12px' }}>
+      <div className="grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '16px' }}>
         <div className="card" style={{ padding: '14px', marginBottom: 0 }}>
-          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Total Doctrine Items</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Total Items</div>
           <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>{summaryMetrics.totalResources}</div>
         </div>
         <div className="card" style={{ padding: '14px', marginBottom: 0 }}>
-          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Fully Stocked / Surplus</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Stocked / Surplus</div>
           <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--accent-green, #10B981)', marginTop: '2px' }}>{summaryMetrics.fullyStockedCount}</div>
         </div>
         <div className="card" style={{ padding: '14px', marginBottom: 0 }}>
           <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Needs Purchase</div>
           <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--accent-amber, #F59E0B)', marginTop: '2px' }}>{summaryMetrics.needsPurchaseCount}</div>
         </div>
+        <div className="card" style={{ padding: '14px', marginBottom: 0 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>7-Day Depletion Alerts</div>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--accent-red, #EF4444)', marginTop: '2px' }}>{forecastAlerts.length}</div>
+        </div>
       </div>
 
       {/* SUB-TAB NAVIGATION */}
-      <div className="day-tabs" style={{ marginBottom: '16px' }}>
+      <div className="day-tabs" style={{ marginBottom: '16px', flexWrap: 'wrap' }}>
         <button
           className={`day-tab ${activeSubTab === 'inventory' ? 'active' : ''}`}
           onClick={() => setActiveSubTab('inventory')}
         >
           Resource Inventory ({resourcesList.length})
+        </button>
+        <button
+          className={`day-tab ${activeSubTab === 'forecast' ? 'active' : ''}`}
+          onClick={() => setActiveSubTab('forecast')}
+        >
+          ⚡ Resource Forecast ({forecastAlerts.length})
         </button>
         <button
           className={`day-tab ${activeSubTab === 'to_buy' ? 'active' : ''}`}
@@ -233,6 +275,7 @@ export const InventoryView = () => {
               const progressPct = reqQty > 0 ? Math.min(100, Math.round((item.currentQty / reqQty) * 100)) : 100;
               const neededQty = Math.max(0, reqQty - item.currentQty);
               const surplusQty = Math.max(0, item.currentQty - reqQty);
+              const forecast = item.forecast || {};
 
               return (
                 <div key={item.id} className="card" style={{ marginBottom: 0, padding: '18px' }}>
@@ -242,7 +285,7 @@ export const InventoryView = () => {
                     <div>
                       <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>{item.name}</div>
                       <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginTop: '2px', letterSpacing: '0.4px' }}>
-                        Category: {item.category} • Doctrine Requirement: {reqQty} {item.unit}
+                        Category: {item.category} • Requirement: {reqQty} {item.unit}
                       </div>
                     </div>
                     {getStockBadge(item)}
@@ -279,6 +322,38 @@ export const InventoryView = () => {
                       }} />
                     </div>
                   </div>
+
+                  {/* FEATURE 11: COMPACT FORECAST BADGE ON RESOURCE CARD */}
+                  {forecast && (
+                    <div style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      background: 'var(--bg-app)',
+                      border: '1px solid var(--border-color)',
+                      marginBottom: '12px',
+                      fontSize: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <TrendingUp size={14} color="var(--accent-purple)" />
+                        <span>
+                          {forecast.daysToDepletion != null ? (
+                            <span>Runs out in <strong>{forecast.daysToDepletion} days</strong> ({forecast.depletionDate})</span>
+                          ) : forecast.dailyUsageRate > 0 ? (
+                            <span>Estimated usage: {forecast.expectedWeeklyUsage} {item.unit}/wk</span>
+                          ) : (
+                            <span>Durable / Stable Stock</span>
+                          )}
+                        </span>
+                      </div>
+
+                      <span className="badge badge-purple" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                        {forecast.confidence}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Quick Usage & Stock Actions */}
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
@@ -379,7 +454,115 @@ export const InventoryView = () => {
         </>
       )}
 
-      {/* TAB 2: AUTOMATIC "NEEDS TO BUY" PURCHASE PLANNER */}
+      {/* TAB 2: FEATURE 11 — WEEKLY RESOURCE FORECAST SECTION */}
+      {activeSubTab === 'forecast' && (
+        <div className="card">
+          <div className="card-title">
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <TrendingUp size={18} color="var(--accent-purple)" /> Weekly Resource Depletion Forecast
+            </span>
+            <span className="badge badge-purple">7-Day Forward Window</span>
+          </div>
+          <div className="card-subtitle">
+            Deterministic depletion dates & purchase recommendations calculated from current stock and actual Doctrine usage schedules.
+          </div>
+
+          {/* Filter Pills */}
+          <div style={{ display: 'flex', gap: '8px', marginTop: '12px', marginBottom: '16px', overflowX: 'auto' }}>
+            {['ALL', 'PROJECTED DEPLETION', 'PURCHASE RECOMMENDED', 'SUFFICIENT'].map(st => (
+              <button
+                key={st}
+                className={`btn btn-sm ${forecastFilter === st ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setForecastFilter(st)}
+                style={{ borderRadius: '20px', padding: '4px 12px', fontSize: '12px' }}
+              >
+                {st}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {resourcesList
+              .filter(item => {
+                if (forecastFilter === 'ALL') return true;
+                return item.forecast?.forecastState === forecastFilter;
+              })
+              .map(item => {
+                const forecast = item.forecast || {};
+                return (
+                  <div
+                    key={item.id}
+                    style={{
+                      padding: '16px',
+                      borderRadius: '12px',
+                      background: 'var(--bg-app)',
+                      border: '1px solid var(--border-color)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
+                      <div>
+                        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>{item.name}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                          Category: {item.category} • Source: <em>{forecast.usageSource}</em>
+                        </div>
+                      </div>
+
+                      {getForecastStateBadge(forecast.forecastState, forecast.daysToDepletion)}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginTop: '12px' }}>
+                      <div style={{ background: 'var(--bg-card)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Current Available</div>
+                        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
+                          {item.currentQty} {item.unit}
+                        </div>
+                      </div>
+
+                      <div style={{ background: 'var(--bg-card)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Expected 7-Day Usage</div>
+                        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--accent-purple)', marginTop: '2px' }}>
+                          {forecast.expectedWeeklyUsage} {item.unit}/wk
+                        </div>
+                      </div>
+
+                      <div style={{ background: 'var(--bg-card)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Estimated Depletion</div>
+                        <div style={{ fontSize: '15px', fontWeight: 700, color: forecast.daysToDepletion != null && forecast.daysToDepletion <= 7 ? 'var(--accent-red)' : 'var(--accent-green)', marginTop: '2px' }}>
+                          {forecast.depletionDate ? forecast.depletionDate : 'No Depletion'}
+                        </div>
+                      </div>
+
+                      <div style={{ background: 'var(--bg-card)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Recommended Purchase</div>
+                        <div style={{ fontSize: '15px', fontWeight: 700, color: forecast.recommendedPurchaseQty > 0 ? 'var(--accent-amber)' : 'var(--accent-green)', marginTop: '2px' }}>
+                          {forecast.recommendedPurchaseQty > 0 ? `${forecast.recommendedPurchaseQty} ${item.unit}` : 'None needed'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                        Confidence: <strong style={{ color: 'var(--accent-blue)' }}>{forecast.confidence}</strong>
+                      </span>
+
+                      {forecast.recommendedPurchaseQty > 0 && (
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => handleMarkPurchased(item)}
+                          style={{ borderRadius: '8px' }}
+                        >
+                          <CheckCircle2 size={14} /> Record Purchase (+{forecast.recommendedPurchaseQty} {item.unit})
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: AUTOMATIC "NEEDS TO BUY" PURCHASE PLANNER */}
       {activeSubTab === 'to_buy' && (
         <div className="card">
           <div className="card-title">
@@ -389,7 +572,7 @@ export const InventoryView = () => {
             <span className="badge badge-purple">{purchasePlanItems.length} Items Needed</span>
           </div>
           <div className="card-subtitle">
-            Items automatically derived from your Doctrine requirements and available stock levels.
+            Items automatically derived from your Doctrine requirements, projected forecast deficits, and available stock levels.
           </div>
 
           {purchasePlanItems.length === 0 ? (
@@ -414,7 +597,7 @@ export const InventoryView = () => {
                   <div>
                     <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>{item.name}</div>
                     <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      Category: {item.category} • Needed: <strong style={{ color: 'var(--accent-amber, #F59E0B)' }}>{item.needed > 0 ? item.needed : (item.purchaseQty || 1)} {item.unit}</strong>
+                      Category: {item.category} • Needed: <strong style={{ color: 'var(--accent-amber, #F59E0B)' }}>{item.needed > 0 ? item.needed : (item.forecast?.recommendedPurchaseQty || item.purchaseQty || 1)} {item.unit}</strong>
                       {item.estimatedPrice ? ` • Est Price: ₹${item.estimatedPrice}` : ''}
                     </div>
                   </div>
@@ -424,7 +607,7 @@ export const InventoryView = () => {
                     style={{ borderRadius: '8px' }}
                     onClick={() => handleMarkPurchased(item)}
                   >
-                    <CheckCircle2 size={14} /> Mark Purchased (+{item.needed > 0 ? item.needed : (item.purchaseQty || 1)} {item.unit})
+                    <CheckCircle2 size={14} /> Mark Purchased (+{item.needed > 0 ? item.needed : (item.forecast?.recommendedPurchaseQty || item.purchaseQty || 1)} {item.unit})
                   </button>
                 </div>
               ))}
@@ -433,7 +616,7 @@ export const InventoryView = () => {
         </div>
       )}
 
-      {/* TAB 3: PERMANENT RESOURCE EVENT HISTORY */}
+      {/* TAB 4: PERMANENT RESOURCE EVENT HISTORY */}
       {activeSubTab === 'history' && (
         <div className="card">
           <div className="card-title">
