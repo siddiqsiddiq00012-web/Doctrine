@@ -51,6 +51,30 @@ app.use(
   })
 );
 
+// Secure progress photos static serving with authentication & user ownership check
+app.use('/uploads/progress_photos', requireAuth, async (req, res, next) => {
+  try {
+    const filename = path.basename(req.path);
+    if (!filename || filename === '.' || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+    const relativeUrl = `/uploads/progress_photos/${filename}`;
+    const [photo] = await db
+      .select()
+      .from(progressPhotos)
+      .where(and(eq(progressPhotos.userId, req.user.id), eq(progressPhotos.photoUrl, relativeUrl)))
+      .limit(1);
+
+    if (!photo) {
+      return res.status(403).json({ error: 'Forbidden: You do not own this progress photo' });
+    }
+    next();
+  } catch (err) {
+    console.error('[Photo Auth Error]', err);
+    res.status(500).json({ error: 'Server error checking photo access' });
+  }
+});
+
 // Serve uploads statically for high-performance avatar and progress photo image retrieval
 app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
 

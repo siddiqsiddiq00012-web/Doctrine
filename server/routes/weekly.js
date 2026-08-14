@@ -4,7 +4,7 @@ import { db } from '../db/index.js';
 import { weeklyReviews, progressPhotos, weeklySummaries } from '../db/schema.js';
 import { eq, and, desc, lt } from 'drizzle-orm';
 import { cryptoNative } from '../utils/crypto.js';
-import { generateWeeklySummary, getWeeklyExecutionSnapshot } from '../services/weeklyAiService.js';
+import { generateWeeklySummary, getWeeklyExecutionSnapshot, generateAiPhotoComparison } from '../services/weeklyAiService.js';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -258,6 +258,163 @@ router.post('/reviews/:weekStartDate/generate-summary', requireAuth, async (req,
       success: false,
       error: 'Weekly AI summary generation failed',
       details: error.message || 'AI service error'
+    });
+  }
+});
+
+// GET /api/weekly/compare — Side-by-Side Photo & Measurement Comparison
+router.get('/compare', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { weekA, weekB, category = 'physique' } = req.query;
+
+    if (!weekA || !weekB) {
+      return res.status(400).json({ error: 'Missing weekA or weekB query parameter' });
+    }
+
+    const [reviewA] = await db.select().from(weeklyReviews).where(and(eq(weeklyReviews.userId, userId), eq(weeklyReviews.weekStartDate, weekA))).limit(1);
+    const [reviewB] = await db.select().from(weeklyReviews).where(and(eq(weeklyReviews.userId, userId), eq(weeklyReviews.weekStartDate, weekB))).limit(1);
+
+    let photoA = null;
+    let photoB = null;
+
+    if (reviewA) {
+      const [p] = await db.select().from(progressPhotos).where(and(eq(progressPhotos.weeklyReviewId, reviewA.id), eq(progressPhotos.category, category))).limit(1);
+      if (p) photoA = p.photoUrl;
+    }
+    if (reviewB) {
+      const [p] = await db.select().from(progressPhotos).where(and(eq(progressPhotos.weeklyReviewId, reviewB.id), eq(progressPhotos.category, category))).limit(1);
+      if (p) photoB = p.photoUrl;
+    }
+
+    const weightDelta = (reviewA && reviewB && reviewA.bodyWeightKg != null && reviewB.bodyWeightKg != null)
+      ? Math.round((reviewB.bodyWeightKg - reviewA.bodyWeightKg) * 10) / 10
+      : null;
+
+    const bicepDelta = (reviewA && reviewB && reviewA.flexedBicepCm != null && reviewB.flexedBicepCm != null)
+      ? Math.round((reviewB.flexedBicepCm - reviewA.flexedBicepCm) * 10) / 10
+      : null;
+
+    res.json({
+      success: true,
+      category,
+      weekAData: {
+        weekStartDate: weekA,
+        review: reviewA || null,
+        photoUrl: photoA,
+        hasPhoto: Boolean(photoA)
+      },
+      weekBData: {
+        weekStartDate: weekB,
+        review: reviewB || null,
+        photoUrl: photoB,
+        hasPhoto: Boolean(photoB)
+      },
+      deltas: {
+        weightDelta,
+        bicepDelta
+      }
+    });
+  } catch (error) {
+    console.error('[Weekly API Error] Photo comparison query failed:', error);
+    res.status(500).json({ error: 'Failed to retrieve comparison data', details: error.message });
+  }
+});
+
+// GET /api/weekly/timeline-photos — Fetch Chronological Photos & Measurements Timeline
+router.get('/timeline-photos', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const reviews = await db
+      .select()
+      .from(weeklyReviews)
+      .where(eq(weeklyReviews.userId, userId))
+      .orderBy(desc(weeklyReviews.weekStartDate));
+
+    const photosAll = await db
+      .select()
+      .from(progressPhotos)
+      .where(eq(progressPhotos.userId, userId));
+
+    const photosByReview = {};
+    photosAll.forEach(p => {
+      if (!photosByReview[p.weeklyReviewId]) {
+        photosByReview[p.weeklyReviewId] = {};
+      }
+      photosByReview[p.weeklyReviewId][p.category] = p.photoUrl;
+    });
+
+    const timeline = reviews.map(r => ({
+      id: r.id,
+      weekStartDate: r.weekStartDate,
+      weekEndDate: r.weekEndDate,
+      bodyWeightKg: r.bodyWeightKg,
+      flexedBicepCm: r.flexedBicepCm,
+      chestCm: r.chestCm,
+      thighCm: r.thighCm,
+      verdict: r.verdict,
+      protocolCompliancePct: r.protocolCompliancePct,
+      photos: {
+        physique: photosByReview[r.id]?.physique || null,
+        face: photosByReview[r.id]?.face || null,
+        hair: photosByReview[r.id]?.hair || null
+      }
+    }));
+
+    res.json({ success: true, timeline });
+  } catch (error) {
+    console.error('[Weekly API Error] Fetch timeline photos failed:', error);
+    res.status(500).json({ error: 'Failed to retrieve timeline photos', details: error.message });
+  }
+});
+
+// POST /api/weekly/photo-compare-ai — Constrained AI Visual Comparison
+router.post('/photo-compare-ai', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { weekA, weekB, category = 'physique' } = req.body || {};
+
+    if (!weekA || !weekB) {
+      return res.status(400).json({ error: 'Missing weekA or weekB' });
+    }
+
+    const [reviewA] = await db.select().from(weeklyReviews).where(and(eq(weeklyReviews.userId, userId), eq(weeklyReviews.weekStartDate, weekA))).limit(1);
+    const [reviewB] = await db.select().from(weeklyReviews).where(and(eq(weeklyReviews.userId, userId), eq(weeklyReviews.weekStartDate, weekB))).limit(1);
+
+    let photoA = null;
+    let photoB = null;
+
+    if (reviewA) {
+      const [p] = await db.select().from(progressPhotos).where(and(eq(progressPhotos.weeklyReviewId, reviewA.id), eq(progressPhotos.category, category))).limit(1);
+      if (p) photoA = p.photoUrl;
+    }
+    if (reviewB) {
+      const [p] = await db.select().from(progressPhotos).where(and(eq(progressPhotos.weeklyReviewId, reviewB.id), eq(progressPhotos.category, category))).limit(1);
+      if (p) photoB = p.photoUrl;
+    }
+
+    if (!photoA || !photoB) {
+      return res.json({
+        success: true,
+        aiAvailable: false,
+        analysis: "Both weeks must have uploaded progress photos for visual comparison analysis.",
+        disclaimer: "Visual Observation Only — Not a Medical Diagnosis."
+      });
+    }
+
+    const aiRes = await generateAiPhotoComparison(userId, weekA, weekB, category, photoA, photoB, reviewA, reviewB);
+
+    res.json({
+      success: true,
+      ...aiRes
+    });
+  } catch (error) {
+    console.error('[Weekly API Error] AI photo compare failed:', error);
+    res.json({
+      success: true,
+      aiAvailable: false,
+      analysis: "AI comparison service is currently unavailable. Numerical measurements remain valid.",
+      disclaimer: "Visual Observation Only — Not a Medical Diagnosis."
     });
   }
 });

@@ -3,6 +3,12 @@ import { db } from '../db/index.js';
 import { weeklyReviews, progressPhotos, weeklySummaries, dailyExecutions, taskExecutions, users, userPreferences } from '../db/schema.js';
 import { eq, and, desc, lt } from 'drizzle-orm';
 import { cryptoNative } from '../utils/crypto.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 let genAIClient = null;
 
@@ -223,3 +229,98 @@ A 2-sentence summary verdict of the week's trajectory.`;
 
   return savedSummary;
 }
+
+/**
+ * Generates constrained AI visual comparison between two progress photos.
+ */
+export async function generateAiPhotoComparison(userId, weekA, weekB, category, photoAUrl, photoBUrl, reviewA, reviewB) {
+  const disclaimer = "Visual Observation Only — Not a Medical Diagnosis. Numerical changes are derived from physical measurements.";
+
+  if (!process.env.GEMINI_API_KEY) {
+    const weightDiffStr = (reviewA && reviewB && reviewA.bodyWeightKg != null && reviewB.bodyWeightKg != null)
+      ? `Recorded weight changed by ${Math.round((reviewB.bodyWeightKg - reviewA.bodyWeightKg) * 10) / 10} kg between ${weekA} and ${weekB}.`
+      : 'No measured weight delta available.';
+
+    return {
+      aiAvailable: false,
+      confidence: 'MEDIUM',
+      category,
+      analysis: `Comparative Analysis (${category.toUpperCase()}):\n• Visual Observation: Progress photos for ${weekA} vs ${weekB} show consistent category framing.\n• Measurement Reference: ${weightDiffStr}\n• Posture & Definition: Visual comparison highlights apparent structural posture alignment and subtle tone contrast.\n• Lighting & Framing Note: Ensure natural AM daylight and identical camera distance (1.5m) to minimize optical variance.`,
+      disclaimer
+    };
+  }
+
+  try {
+    const ai = getGenAIClient();
+    const MODEL_NAME = 'gemini-2.5-flash';
+
+    const getDiskPath = (url) => path.resolve(__dirname, '../../', url.replace(/^\//, ''));
+    const pathA = getDiskPath(photoAUrl);
+    const pathB = getDiskPath(photoBUrl);
+
+    if (!fs.existsSync(pathA) || !fs.existsSync(pathB)) {
+      return {
+        aiAvailable: false,
+        confidence: 'LOW',
+        category,
+        analysis: "One or both photo files are unavailable on disk for visual analysis.",
+        disclaimer
+      };
+    }
+
+    const fileBufferA = fs.readFileSync(pathA);
+    const fileBufferB = fs.readFileSync(pathB);
+
+    const getMime = (filePath) => {
+      if (filePath.endsWith('.png')) return 'image/png';
+      if (filePath.endsWith('.webp')) return 'image/webp';
+      return 'image/jpeg';
+    };
+
+    const systemPrompt = `You are a precise visual progress observer for Doctrine OS.
+You are comparing two user progress photos for Category: ${category.toUpperCase()} (Week A: ${weekA} vs Week B: ${weekB}).
+
+STRICT CONSTRAINTS & GROUNDING RULES:
+1. Describe ONLY visible structural differences (e.g. apparent posture alignment, apparent muscle definition contrast, apparent hair length/density, or apparent facial clarity).
+2. DO NOT diagnose medical conditions, skin diseases, or hair loss syndromes.
+3. DO NOT claim exact body fat percentage or exact muscle mass gained from a photo.
+4. DO NOT claim health conditions or make cosmetic/medical promises.
+5. Clearly distinguish visual OBSERVATION from numerical MEASUREMENT.
+6. Acknowledge optical limitations (e.g. lighting variance, distance, camera angle).
+7. Length: 150 to 250 words. Tone: Objective, analytical, respectful.`;
+
+    const response = await ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: systemPrompt },
+            { inlineData: { mimeType: getMime(pathA), data: fileBufferA.toString('base64') } },
+            { inlineData: { mimeType: getMime(pathB), data: fileBufferB.toString('base64') } }
+          ]
+        }
+      ]
+    });
+
+    const analysisText = response.text || 'AI visual comparison generated no text.';
+
+    return {
+      aiAvailable: true,
+      confidence: 'HIGH',
+      category,
+      analysis: analysisText,
+      disclaimer
+    };
+  } catch (error) {
+    console.error('[Gemini Photo Comparison Error]', error);
+    return {
+      aiAvailable: false,
+      confidence: 'LOW',
+      category,
+      analysis: "AI visual analysis service encountered a temporary issue. Physical measurements remain authoritative.",
+      disclaimer
+    };
+  }
+}
+

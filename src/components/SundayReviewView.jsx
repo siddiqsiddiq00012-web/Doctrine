@@ -13,7 +13,14 @@ import {
   RefreshCw,
   Clock,
   ShieldCheck,
-  FileText
+  FileText,
+  Sliders,
+  Eye,
+  Info,
+  X,
+  Grid,
+  Layers,
+  Lock
 } from 'lucide-react';
 
 export const SundayReviewView = () => {
@@ -38,7 +45,7 @@ export const SundayReviewView = () => {
     .toISOString()
     .split('T')[0];
 
-  const [activeTab, setActiveTab] = useState('current'); // 'current' | 'history'
+  const [activeTab, setActiveTab] = useState('current'); // 'current' | 'compare' | 'history'
   const [step, setStep] = useState(1); // 1: Measurements, 2: Indicators, 3: Photos, 4: Notes, 5: Submit/AI Summary
 
   const [review, setReview] = useState(null);
@@ -48,7 +55,24 @@ export const SundayReviewView = () => {
   const [summaryRecord, setSummaryRecord] = useState(null);
 
   const [historyList, setHistoryList] = useState([]);
+  const [timelineList, setTimelineList] = useState([]);
   const [selectedHistoryWeek, setSelectedHistoryWeek] = useState(null);
+
+  // FEATURE 13: PREVIEW BEFORE SAVE STATE (Requirement 11)
+  const [pendingPhoto, setPendingPhoto] = useState(null); // { category, file, base64Data, filename }
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  // FEATURE 13: Side-by-Side Compare & Timeline Stepper State
+  const [compareWeekA, setCompareWeekA] = useState(currentWeekStart);
+  const [compareWeekB, setCompareWeekB] = useState('');
+  const [compareCategory, setCompareCategory] = useState('physique'); // 'physique' | 'face' | 'hair'
+  const [compareData, setCompareData] = useState(null);
+  const [comparing, setComparing] = useState(false);
+  const [compareViewMode, setCompareViewMode] = useState('sideBySide'); // 'sideBySide' | 'timeline'
+
+  // AI Analysis State
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [analyzingAi, setAnalyzingAi] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -134,119 +158,161 @@ export const SundayReviewView = () => {
     }
   }, [user, currentWeekStart]);
 
-  // 2. Fetch All History
+  // 2. Fetch All History & Photo Timeline
   const fetchHistoryList = useCallback(async () => {
     if (!user) return;
     try {
       const res = await fetch('/api/weekly/reviews', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
-        setHistoryList(data.reviews || []);
+        const list = data.reviews || [];
+        setHistoryList(list);
+        if (list.length >= 2 && !compareWeekB) {
+          setCompareWeekA(list[1].weekStartDate);
+          setCompareWeekB(list[0].weekStartDate);
+        } else if (list.length === 1 && !compareWeekB) {
+          setCompareWeekB(list[0].weekStartDate);
+        }
+      }
+
+      const timelineRes = await fetch('/api/weekly/timeline-photos', { credentials: 'include' });
+      if (timelineRes.ok) {
+        const timelineData = await timelineRes.json();
+        setTimelineList(timelineData.timeline || []);
       }
     } catch (e) {
       console.error('Fetch history reviews error:', e);
     }
-  }, [user]);
+  }, [user, compareWeekB]);
 
   useEffect(() => {
     fetchCurrentWeekData();
     fetchHistoryList();
   }, [fetchCurrentWeekData, fetchHistoryList]);
 
-  // 3. Save Review Handler
-  const handleSaveReview = async (generateAi = false) => {
+  // Fetch Side-by-Side Comparison Data
+  const fetchComparisonData = useCallback(async () => {
+    if (!compareWeekA || !compareWeekB) return;
+    setComparing(true);
+    setAiAnalysis(null);
+    try {
+      const res = await fetch(`/api/weekly/compare?weekA=${compareWeekA}&weekB=${compareWeekB}&category=${compareCategory}`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setCompareData(data);
+      }
+    } catch (e) {
+      console.error('Fetch comparison error:', e);
+    } finally {
+      setComparing(false);
+    }
+  }, [compareWeekA, compareWeekB, compareCategory]);
+
+  useEffect(() => {
+    if (activeTab === 'compare' && compareWeekA && compareWeekB) {
+      fetchComparisonData();
+    }
+  }, [activeTab, compareWeekA, compareWeekB, compareCategory, fetchComparisonData]);
+
+  // FEATURE 13: PREVIEW BEFORE SAVE (Requirement 11)
+  const handleSelectPhotoFile = (category, file) => {
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      alert('Invalid image format. Supported formats: JPEG, PNG, WebP.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size exceeds 5MB limit. Please select a smaller photo.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setPendingPhoto({
+        category,
+        file,
+        base64Data: e.target.result,
+        filename: file.name
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Confirm and save selected photo to server DB
+  const handleConfirmPhotoUpload = async () => {
+    if (!pendingPhoto) return;
+    setUploadingPhoto(true);
+
+    try {
+      const res = await fetch('/api/weekly/photos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          weekStartDate: currentWeekStart,
+          category: pendingPhoto.category,
+          photoData: pendingPhoto.base64Data
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setPhotos(prev => ({ ...prev, [pendingPhoto.category]: data.photoUrl }));
+        setStatusMsg({ type: 'success', text: `${pendingPhoto.category.toUpperCase()} progress photo saved securely!` });
+        setPendingPhoto(null);
+        setTimeout(() => setStatusMsg(null), 3000);
+        fetchHistoryList();
+      } else {
+        const errData = await res.json();
+        alert(`Upload failed: ${errData.message || 'Server error'}`);
+      }
+    } catch (err) {
+      console.error('Photo upload error:', err);
+      alert('Failed to upload progress photo to server.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  // Save Weekly Review Form
+  const handleSaveReview = async () => {
     setSubmitting(true);
     setStatusMsg(null);
 
     try {
-      const payload = {
-        weekStartDate: currentWeekStart,
-        weekEndDate: currentWeekEnd,
-        bodyWeightKg: formState.bodyWeightKg,
-        flexedBicepCm: formState.flexedBicepCm,
-        chestCm: formState.chestCm,
-        thighCm: formState.thighCm,
-        morningHeightCm: formState.morningHeightCm,
-        workoutPerformance: formState.workoutPerformance,
-        complexion: formState.complexion,
-        activeBreakouts: formState.activeBreakouts,
-        hairShedding: formState.hairShedding,
-        newBabyHairs: formState.newBabyHairs,
-        sleepQuality: formState.sleepQuality,
-        digestion: formState.digestion,
-        energyLevels: formState.energyLevels,
-        protocolCompliancePct: formState.protocolCompliancePct,
-        verdict: formState.verdict,
-        refinementNotes: formState.refinementNotes,
-        financesSaved: formState.financesSaved,
-        financesSpent: formState.financesSpent,
-        financesWhatOn: formState.financesWhatOn,
-        financesWhy: formState.financesWhy
-      };
-
       const res = await fetch('/api/weekly/reviews', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          weekStartDate: currentWeekStart,
+          weekEndDate: currentWeekEnd,
+          ...formState
+        })
       });
 
       if (res.ok) {
         const data = await res.json();
         setReview(data.review);
         setStatusMsg({ type: 'success', text: 'Sunday Weekly Review saved successfully!' });
-        await fetchHistoryList();
-
-        if (generateAi) {
-          await handleGenerateAiSummary(true);
-        } else {
-          setStep(5);
-        }
+        setTimeout(() => setStatusMsg(null), 4000);
+        fetchCurrentWeekData();
+        fetchHistoryList();
       } else {
         const errData = await res.json();
-        setStatusMsg({ type: 'error', text: errData.error || 'Failed to save review.' });
+        setStatusMsg({ type: 'error', text: `Save error: ${errData.details || errData.message || 'Failed to save.'}` });
       }
     } catch (e) {
       console.error('Save review error:', e);
-      setStatusMsg({ type: 'error', text: 'Network error saving weekly review.' });
+      setStatusMsg({ type: 'error', text: 'Network connection failed while saving review.' });
     } finally {
       setSubmitting(false);
     }
   };
 
-  // 4. Progress Photo Upload Handler
-  const handlePhotoUpload = async (category, file) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const base64Data = e.target.result;
-
-      try {
-        const res = await fetch('/api/weekly/photos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            weekStartDate: currentWeekStart,
-            category,
-            photoData: base64Data
-          })
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          setPhotos(prev => ({ ...prev, [category]: data.photoUrl }));
-        } else {
-          alert('Failed to upload progress photo.');
-        }
-      } catch (err) {
-        console.error('Photo upload error:', err);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // 5. Generate AI Summary Handler
+  // Generate Weekly AI Summary
   const handleGenerateAiSummary = async (forceRegenerate = false) => {
     setGeneratingAi(true);
 
@@ -273,16 +339,48 @@ export const SundayReviewView = () => {
     }
   };
 
+  // Request Optional AI Visual Comparison
+  const handleRunAiPhotoCompare = async () => {
+    setAnalyzingAi(true);
+    setAiAnalysis(null);
+    try {
+      const res = await fetch('/api/weekly/photo-compare-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          weekA: compareWeekA,
+          weekB: compareWeekB,
+          category: compareCategory
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAiAnalysis(data);
+      }
+    } catch (e) {
+      console.error('AI photo compare error:', e);
+    } finally {
+      setAnalyzingAi(false);
+    }
+  };
+
   return (
-    <div style={{ maxWidth: '720px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '780px', margin: '0 auto', paddingBottom: '40px' }}>
       
       {/* Sub-tab Navigation */}
-      <div className="day-tabs" style={{ marginBottom: '20px' }}>
+      <div className="day-tabs" style={{ marginBottom: '20px', flexWrap: 'wrap' }}>
         <button
           className={`day-tab ${activeTab === 'current' ? 'active' : ''}`}
           onClick={() => setActiveTab('current')}
         >
           Sunday Weekly Review
+        </button>
+        <button
+          className={`day-tab ${activeTab === 'compare' ? 'active' : ''}`}
+          onClick={() => setActiveTab('compare')}
+        >
+          📸 Smart Photo Comparison ({historyList.length})
         </button>
         <button
           className={`day-tab ${activeTab === 'history' ? 'active' : ''}`}
@@ -292,7 +390,7 @@ export const SundayReviewView = () => {
         </button>
       </div>
 
-      {activeTab === 'current' ? (
+      {activeTab === 'current' && (
         <div>
           
           {/* Header Card */}
@@ -348,54 +446,58 @@ export const SundayReviewView = () => {
               fontSize: '13px',
               fontWeight: 600,
               backgroundColor: statusMsg.type === 'success' ? 'var(--accent-green-subtle)' : 'var(--accent-red-subtle)',
-              color: statusMsg.type === 'success' ? 'var(--accent-green)' : 'var(--accent-red)',
-              border: `1px solid ${statusMsg.type === 'success' ? 'var(--accent-green)' : 'var(--accent-red)'}`
+              border: `1px solid ${statusMsg.type === 'success' ? 'var(--accent-green)' : 'var(--accent-red)'}`,
+              color: statusMsg.type === 'success' ? 'var(--accent-green)' : 'var(--accent-red)'
             }}>
               {statusMsg.text}
             </div>
           )}
 
-          {/* STEP 1: BODY MEASUREMENTS */}
+          {/* STEP 1: PHYSICAL MEASUREMENTS */}
           {step === 1 && (
             <div className="card" style={{ padding: '24px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>1. Physical Body Measurements</h3>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>1. Sunday Physical Measurements</h3>
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-                Record morning measurements. Week-over-week deltas are calculated automatically.
+                Record morning fasted body metrics. Deltas are calculated automatically against previous Sunday records.
               </p>
 
               <div className="grid-2">
                 <div className="form-group">
-                  <label className="form-label">
-                    Body Weight (kg) {deltas.weightDelta !== null && <span style={{ color: deltas.weightDelta >= 0 ? 'var(--accent-green)' : 'var(--accent-amber)', fontSize: '11px' }}>({deltas.weightDelta >= 0 ? '+' : ''}{deltas.weightDelta} kg)</span>}
-                  </label>
+                  <label className="form-label">Body Weight (kg)</label>
                   <input
                     type="number"
                     step="0.1"
                     className="form-input"
-                    placeholder="e.g. 72.5"
+                    placeholder="e.g. 68.5"
                     value={formState.bodyWeightKg}
                     onChange={e => setFormState({ ...formState, bodyWeightKg: e.target.value })}
                   />
+                  {deltas.weightDelta != null && (
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: deltas.weightDelta > 0 ? 'var(--accent-green)' : 'var(--accent-red)', marginTop: '4px', display: 'block' }}>
+                      {deltas.weightDelta > 0 ? `+${deltas.weightDelta}` : deltas.weightDelta} kg vs last week
+                    </span>
+                  )}
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">
-                    Flexed Bicep (cm) {deltas.bicepDelta !== null && <span style={{ color: 'var(--accent-blue)', fontSize: '11px' }}>({deltas.bicepDelta >= 0 ? '+' : ''}{deltas.bicepDelta} cm)</span>}
-                  </label>
+                  <label className="form-label">Flexed Bicep (cm)</label>
                   <input
                     type="number"
                     step="0.1"
                     className="form-input"
-                    placeholder="e.g. 36.0"
+                    placeholder="e.g. 35.0"
                     value={formState.flexedBicepCm}
                     onChange={e => setFormState({ ...formState, flexedBicepCm: e.target.value })}
                   />
+                  {deltas.bicepDelta != null && (
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: deltas.bicepDelta > 0 ? 'var(--accent-green)' : 'var(--accent-red)', marginTop: '4px', display: 'block' }}>
+                      {deltas.bicepDelta > 0 ? `+${deltas.bicepDelta}` : deltas.bicepDelta} cm vs last week
+                    </span>
+                  )}
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">
-                    Chest (cm) {deltas.chestDelta !== null && <span style={{ color: 'var(--accent-blue)', fontSize: '11px' }}>({deltas.chestDelta >= 0 ? '+' : ''}{deltas.chestDelta} cm)</span>}
-                  </label>
+                  <label className="form-label">Chest Girth (cm)</label>
                   <input
                     type="number"
                     step="0.1"
@@ -407,7 +509,7 @@ export const SundayReviewView = () => {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Thigh (cm)</label>
+                  <label className="form-label">Thigh Girth (cm)</label>
                   <input
                     type="number"
                     step="0.1"
@@ -417,34 +519,22 @@ export const SundayReviewView = () => {
                     onChange={e => setFormState({ ...formState, thighCm: e.target.value })}
                   />
                 </div>
-
-                <div className="form-group">
-                  <label className="form-label">Morning Height (cm)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    className="form-input"
-                    placeholder="e.g. 178.5"
-                    value={formState.morningHeightCm}
-                    onChange={e => setFormState({ ...formState, morningHeightCm: e.target.value })}
-                  />
-                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
                 <button className="btn btn-primary" onClick={() => setStep(2)}>
-                  Next: Physical & Appearance <ChevronRight size={16} />
+                  Next: Subjective Indicators <ChevronRight size={16} />
                 </button>
               </div>
             </div>
           )}
 
-          {/* STEP 2: PHYSICAL & APPEARANCE INDICATORS */}
+          {/* STEP 2: SUBJECTIVE RECOVERY INDICATORS */}
           {step === 2 && (
             <div className="card" style={{ padding: '24px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>2. Physical & Appearance Indicators</h3>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>2. Subjective Recovery & Health Indicators</h3>
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-                Assess workout performance, skin complexion, hair growth, and recovery indicators.
+                Evaluate skin barrier clarity, hair follicle growth, sleep, and digestive health.
               </p>
 
               <div className="grid-2">
@@ -534,19 +624,41 @@ export const SundayReviewView = () => {
             </div>
           )}
 
-          {/* STEP 3: PROGRESS PHOTOS */}
+          {/* STEP 3: FEATURE 13 — PROGRESS PHOTOS WITH PREVIEW & CONSISTENCY GUIDANCE */}
           {step === 3 && (
             <div className="card" style={{ padding: '24px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>3. Private Progress Photos</h3>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-                Upload encrypted progress photos for this week. Photos persist securely in your local server storage.
+              <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>3. Standardized Sunday Progress Photos</h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                Upload standardized photos for weekly visual tracking. Photos are stored securely on your server filesystem.
               </p>
 
+              {/* FEATURE 13: CONSISTENCY GUIDANCE BANNER (Requirement 9) */}
+              <div style={{
+                padding: '14px 16px',
+                borderRadius: '12px',
+                background: 'var(--bg-app)',
+                border: '1px solid var(--border-color)',
+                marginBottom: '20px',
+                fontSize: '12px',
+                color: 'var(--text-secondary)'
+              }}>
+                <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Info size={15} color="var(--accent-blue)" /> Photo Standardization Guidelines
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '6px' }}>
+                  <div>• <strong>Lighting</strong>: Natural daylight or constant AM bulb.</div>
+                  <div>• <strong>Distance</strong>: ~1.5m (Body), ~0.5m (Face/Hair).</div>
+                  <div>• <strong>Framing</strong>: Identical posture & eye height.</div>
+                  <div>• <strong>Privacy</strong>: Authenticated session ownership enforced.</div>
+                </div>
+              </div>
+
+              {/* PHOTO SELECTION CARDS */}
               <div className="grid-3">
                 {[
-                  { cat: 'physique', title: 'Physique Photo' },
-                  { cat: 'face', title: 'Face / Skin Photo' },
-                  { cat: 'hair', title: 'Hair / Scalp Photo' }
+                  { cat: 'physique', title: 'Body / Physique' },
+                  { cat: 'face', title: 'Face / Skin' },
+                  { cat: 'hair', title: 'Hair / Scalp' }
                 ].map(item => (
                   <div
                     key={item.cat}
@@ -561,32 +673,95 @@ export const SundayReviewView = () => {
                     <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '10px' }}>{item.title}</div>
                     
                     {photos[item.cat] ? (
-                      <div style={{ marginBottom: '10px' }}>
+                      <div style={{ marginBottom: '10px', height: '150px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
                         <img
                           src={photos[item.cat]}
                           alt={item.title}
-                          style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '8px' }}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
                       </div>
                     ) : (
-                      <div style={{ padding: '24px 0', color: 'var(--text-tertiary)' }}>
-                        <Camera size={32} style={{ marginBottom: '6px' }} />
-                        <div style={{ fontSize: '12px' }}>No photo uploaded</div>
+                      <div style={{ height: '150px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)', border: '1px dashed var(--border-color)', borderRadius: '8px', marginBottom: '10px', background: 'var(--bg-app)' }}>
+                        <Camera size={28} style={{ marginBottom: '6px' }} />
+                        <div style={{ fontSize: '12px' }}>No photo saved yet</div>
                       </div>
                     )}
 
                     <label className="btn btn-secondary btn-sm" style={{ width: '100%', cursor: 'pointer', borderRadius: '8px' }}>
-                      <Camera size={13} /> {photos[item.cat] ? 'Replace Photo' : 'Upload Photo'}
+                      <Camera size={13} /> {photos[item.cat] ? 'Replace Photo' : 'Select Photo'}
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp"
                         style={{ display: 'none' }}
-                        onChange={e => handlePhotoUpload(item.cat, e.target.files[0])}
+                        onChange={e => handleSelectPhotoFile(item.cat, e.target.files[0])}
                       />
                     </label>
                   </div>
                 ))}
               </div>
+
+              {/* FEATURE 13: PREVIEW MODAL / CONFIRMATION DIALOG (Requirement 11) */}
+              {pendingPhoto && (
+                <div style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: 'rgba(0,0,0,0.7)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 9999,
+                  padding: '20px'
+                }}>
+                  <div className="card" style={{ maxWidth: '420px', width: '100%', padding: '24px', position: 'relative' }}>
+                    <button
+                      onClick={() => setPendingPhoto(null)}
+                      style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' }}
+                    >
+                      <X size={18} />
+                    </button>
+
+                    <h3 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '6px' }}>
+                      Confirm {pendingPhoto.category.toUpperCase()} Photo
+                    </h3>
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                      Preview your selected image before saving to your weekly record.
+                    </p>
+
+                    <div style={{ height: '240px', borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--border-color)', marginBottom: '16px' }}>
+                      <img
+                        src={pendingPhoto.base64Data}
+                        alt="Preview"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    </div>
+
+                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '20px', fontStyle: 'italic' }}>
+                      File: {pendingPhoto.filename} ({(pendingPhoto.file.size / 1024).toFixed(1)} KB)
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => setPendingPhoto(null)}
+                        disabled={uploadingPhoto}
+                      >
+                        Choose Different Image
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        onClick={handleConfirmPhotoUpload}
+                        disabled={uploadingPhoto}
+                      >
+                        {uploadingPhoto ? <RefreshCw size={14} className="spin" /> : <ShieldCheck size={14} />}
+                        <span>Confirm & Save</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
                 <button className="btn btn-secondary" onClick={() => setStep(2)}>
@@ -599,7 +774,7 @@ export const SundayReviewView = () => {
             </div>
           )}
 
-          {/* STEP 4: REFINEMENT NOTES & FINANCIALS */}
+          {/* STEP 4: REFINEMENT NOTES & SUBMISSION */}
           {step === 4 && (
             <div className="card" style={{ padding: '24px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>4. Protocol Compliance & Weekly Refinement</h3>
@@ -649,132 +824,387 @@ export const SundayReviewView = () => {
                 </button>
                 <button
                   className="btn btn-primary"
-                  onClick={() => handleSaveReview(true)}
-                  disabled={submitting || generatingAi}
+                  onClick={handleSaveReview}
+                  disabled={submitting}
                 >
-                  <CheckCircle2 size={16} className={submitting || generatingAi ? 'animate-spin' : ''} />
-                  {submitting ? 'Saving Review...' : generatingAi ? 'Generating AI Analysis...' : 'Complete Review & Generate AI Summary'}
+                  {submitting ? <RefreshCw size={16} className="spin" /> : <CheckCircle2 size={16} />}
+                  <span>Save Weekly Review Record</span>
                 </button>
               </div>
             </div>
           )}
 
-          {/* STEP 5: REVIEW & AI SUMMARY */}
+          {/* STEP 5: AI SUMMARY & VERDICT */}
           {step === 5 && (
-            <div>
-              {/* Review Overview Banner */}
-              <div className="card" style={{ padding: '20px', marginBottom: '20px', backgroundColor: 'var(--accent-green-subtle)', borderColor: 'var(--accent-green)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--accent-green)', margin: '0 0 4px 0' }}>
-                      ✓ Weekly Review Saved & Verified
-                    </h3>
-                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
-                      Compliance Score: <strong>{formState.protocolCompliancePct}%</strong> • Verdict: <strong>{formState.verdict}</strong>
-                    </p>
-                  </div>
-                  <button className="btn btn-secondary btn-sm" onClick={() => setStep(1)}>
-                    Edit Review Inputs
-                  </button>
-                </div>
+            <div className="card" style={{ padding: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={20} color="var(--accent-purple)" /> Sunday AI Executive Summary
+                </h3>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => handleGenerateAiSummary(true)}
+                  disabled={generatingAi}
+                >
+                  {generatingAi ? <RefreshCw size={14} className="spin" /> : <RefreshCw size={14} />}
+                  <span>Regenerate Summary</span>
+                </button>
               </div>
 
-              {/* Gemini AI Weekly Summary Card */}
-              <div className="card" style={{ padding: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Sparkles size={20} color="var(--accent-purple)" />
-                    <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                      Sunday Night AI Weekly Summary
-                    </h3>
-                  </div>
-                  <button
-                    onClick={() => handleGenerateAiSummary(true)}
-                    disabled={generatingAi}
-                    className="btn btn-secondary btn-sm"
-                  >
-                    <RefreshCw size={13} className={generatingAi ? 'animate-spin' : ''} />
-                    {generatingAi ? 'Analyzing Week...' : 'Regenerate AI Summary'}
-                  </button>
-                </div>
-
-                {summaryRecord ? (
-                  <div style={{ fontSize: '14px', lineHeight: '1.65', color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
+              {summaryRecord ? (
+                <div>
+                  <div style={{
+                    padding: '16px',
+                    borderRadius: '12px',
+                    backgroundColor: 'var(--bg-app)',
+                    border: '1px solid var(--border-color)',
+                    fontSize: '14px',
+                    lineHeight: '1.6',
+                    color: 'var(--text-primary)',
+                    whiteSpace: 'pre-line'
+                  }}>
                     {summaryRecord.summary}
                   </div>
-                ) : (
-                  <div style={{ padding: '20px 0', textAlign: 'center' }}>
-                    <button
-                      className="btn btn-primary"
-                      onClick={() => handleGenerateAiSummary(false)}
-                      disabled={generatingAi}
-                    >
-                      <Sparkles size={16} /> Generate AI Weekly Summary
-                    </button>
-                  </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '30px 0' }}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => handleGenerateAiSummary(false)}
+                    disabled={generatingAi}
+                  >
+                    {generatingAi ? <RefreshCw size={16} className="spin" /> : <Sparkles size={16} />}
+                    <span>Generate 10:00 PM Sunday AI Summary</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
         </div>
-      ) : (
+      )}
 
-        /* HISTORICAL TRANSFORMATION TIMELINE TAB */
-        <div>
-          <div className="card" style={{ padding: '20px', marginBottom: '20px' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>
-              Transformation History Timeline
-            </h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
-              Permanent historical record of weekly measurements, physical indicators, and progress photos.
-            </p>
+      {/* FEATURE 13: SUB-TAB 2 — SMART PHOTO COMPARISON & LONGITUDINAL TIMELINE */}
+      {activeTab === 'compare' && (
+        <div className="card" style={{ padding: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Camera size={20} color="var(--accent-purple)" />
+                <h2 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                  Smart Weekly Photo Comparison
+                </h2>
+                <span className="badge badge-purple">Longitudinal</span>
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                Compare standardized weekly progress photos and physical measurements side-by-side.
+              </div>
+            </div>
+
+            {/* View Mode Switcher */}
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button
+                className={`btn btn-sm ${compareViewMode === 'sideBySide' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setCompareViewMode('sideBySide')}
+              >
+                <Layers size={14} /> Side-by-Side
+              </button>
+              <button
+                className={`btn btn-sm ${compareViewMode === 'timeline' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setCompareViewMode('timeline')}
+              >
+                <Grid size={14} /> Timeline Strip
+              </button>
+            </div>
+          </div>
+
+          {/* CATEGORY & WEEK SELECTORS */}
+          <div style={{ display: 'flex', gap: '10px', marginTop: '18px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)' }}>Category:</span>
+            {[
+              { key: 'physique', label: 'BODY (Physique)' },
+              { key: 'face', label: 'FACE (Skin)' },
+              { key: 'hair', label: 'HAIR (Scalp)' }
+            ].map(cat => (
+              <button
+                key={cat.key}
+                onClick={() => setCompareCategory(cat.key)}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '20px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  border: `1px solid ${compareCategory === cat.key ? 'var(--accent-purple)' : 'var(--border-color)'}`,
+                  background: compareCategory === cat.key ? 'var(--accent-purple-subtle)' : 'var(--bg-app)',
+                  color: compareCategory === cat.key ? 'var(--accent-purple)' : 'var(--text-secondary)'
+                }}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {/* VIEW MODE 1: SIDE-BY-SIDE COMPARISON */}
+          {compareViewMode === 'sideBySide' && (
+            <div>
+              <div className="grid-2" style={{ gap: '16px', marginBottom: '20px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Week A (Baseline)</label>
+                  <select
+                    className="form-select"
+                    value={compareWeekA}
+                    onChange={e => setCompareWeekA(e.target.value)}
+                  >
+                    {historyList.map(h => (
+                      <option key={h.id} value={h.weekStartDate}>Week starting {h.weekStartDate}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Week B (Comparison Target)</label>
+                  <select
+                    className="form-select"
+                    value={compareWeekB}
+                    onChange={e => setCompareWeekB(e.target.value)}
+                  >
+                    {historyList.map(h => (
+                      <option key={h.id} value={h.weekStartDate}>Week starting {h.weekStartDate}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {comparing ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-secondary)' }}>
+                  <RefreshCw size={24} className="spin" style={{ margin: '0 auto 8px', display: 'block' }} />
+                  Loading photo comparison data...
+                </div>
+              ) : compareData ? (
+                <div>
+                  <div className="grid-2" style={{ gap: '16px', marginBottom: '20px' }}>
+                    
+                    {/* WEEK A CARD */}
+                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', background: 'var(--bg-app)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          Week A ({compareData.weekAData.weekStartDate})
+                        </div>
+                        <span className="badge badge-secondary">Baseline</span>
+                      </div>
+
+                      {compareData.weekAData.hasPhoto ? (
+                        <div style={{ width: '100%', height: '260px', borderRadius: '10px', overflow: 'hidden', marginBottom: '12px', border: '1px solid var(--border-color)' }}>
+                          <img
+                            src={compareData.weekAData.photoUrl}
+                            alt="Week A"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        </div>
+                      ) : (
+                        <div style={{ height: '260px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-card)', borderRadius: '10px', color: 'var(--text-tertiary)', fontSize: '13px', marginBottom: '12px', border: '1px dashed var(--border-color)' }}>
+                          <Camera size={32} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                          <div>Photo unavailable for this week</div>
+                        </div>
+                      )}
+
+                      {compareData.weekAData.review ? (
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', background: 'var(--bg-card-subtle)', padding: '10px', borderRadius: '8px' }}>
+                          <div>Weight: <strong>{compareData.weekAData.review.bodyWeightKg ?? '—'} kg</strong></div>
+                          <div>Bicep: <strong>{compareData.weekAData.review.flexedBicepCm ?? '—'} cm</strong></div>
+                          <div>Chest: <strong>{compareData.weekAData.review.chestCm ?? '—'} cm</strong></div>
+                          <div>Compliance: <strong>{compareData.weekAData.review.protocolCompliancePct ?? 100}%</strong></div>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>No recorded measurements</div>
+                      )}
+                    </div>
+
+                    {/* WEEK B CARD */}
+                    <div style={{ border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', background: 'var(--bg-app)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          Week B ({compareData.weekBData.weekStartDate})
+                        </div>
+                        <span className="badge badge-purple">Comparison</span>
+                      </div>
+
+                      {compareData.weekBData.hasPhoto ? (
+                        <div style={{ width: '100%', height: '260px', borderRadius: '10px', overflow: 'hidden', marginBottom: '12px', border: '1px solid var(--border-color)' }}>
+                          <img
+                            src={compareData.weekBData.photoUrl}
+                            alt="Week B"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        </div>
+                      ) : (
+                        <div style={{ height: '260px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-card)', borderRadius: '10px', color: 'var(--text-tertiary)', fontSize: '13px', marginBottom: '12px', border: '1px dashed var(--border-color)' }}>
+                          <Camera size={32} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                          <div>Photo unavailable for this week</div>
+                        </div>
+                      )}
+
+                      {compareData.weekBData.review ? (
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', background: 'var(--bg-card-subtle)', padding: '10px', borderRadius: '8px' }}>
+                          <div>Weight: <strong>{compareData.weekBData.review.bodyWeightKg ?? '—'} kg</strong></div>
+                          <div>Bicep: <strong>{compareData.weekBData.review.flexedBicepCm ?? '—'} cm</strong></div>
+                          <div>Chest: <strong>{compareData.weekBData.review.chestCm ?? '—'} cm</strong></div>
+                          <div>Compliance: <strong>{compareData.weekBData.review.protocolCompliancePct ?? 100}%</strong></div>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>No recorded measurements</div>
+                      )}
+                    </div>
+
+                  </div>
+
+                  {/* MEASUREMENT DELTAS BAR */}
+                  <div style={{ padding: '14px 18px', borderRadius: '12px', background: 'var(--bg-card-subtle)', border: '1px solid var(--border-color)', marginBottom: '20px', display: 'flex', gap: '24px', flexWrap: 'wrap', fontSize: '13px' }}>
+                    <div>Weight Delta: <strong>{compareData.deltas.weightDelta != null ? `${compareData.deltas.weightDelta > 0 ? '+' : ''}${compareData.deltas.weightDelta} kg` : 'N/A'}</strong></div>
+                    <div>Bicep Delta: <strong>{compareData.deltas.bicepDelta != null ? `${compareData.deltas.bicepDelta > 0 ? '+' : ''}${compareData.deltas.bicepDelta} cm` : 'N/A'}</strong></div>
+                    <div>Visual Category: <strong>{compareCategory.toUpperCase()}</strong></div>
+                  </div>
+
+                  {/* FEATURE 13: OPTIONAL AI VISUAL COMPARISON ACTION (Requirements 20-23) */}
+                  <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={handleRunAiPhotoCompare}
+                      disabled={analyzingAi}
+                      style={{ borderRadius: '8px' }}
+                    >
+                      {analyzingAi ? <RefreshCw size={14} className="spin" /> : <Sparkles size={14} color="var(--accent-purple)" />}
+                      <span>Analyze Visual Differences with AI</span>
+                    </button>
+
+                    {aiAnalysis && (
+                      <div style={{ marginTop: '14px', padding: '16px', borderRadius: '12px', background: 'var(--bg-app)', border: '1px solid var(--border-color)', fontSize: '13px', lineHeight: '1.5' }}>
+                        <div style={{ fontWeight: 700, color: 'var(--accent-purple)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Sparkles size={16} /> AI Visual Observation ({compareCategory.toUpperCase()})
+                        </div>
+                        <div style={{ whiteSpace: 'pre-line', color: 'var(--text-primary)' }}>{aiAnalysis.analysis}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '12px', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Lock size={12} /> ⚠️ {aiAnalysis.disclaimer}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              ) : (
+                <div style={{ padding: '30px 0', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                  Select two weeks above to compare photo transformation.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* VIEW MODE 2: CHRONOLOGICAL TIMELINE STRIP (Requirements 14 & 15) */}
+          {compareViewMode === 'timeline' && (
+            <div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                Chronological visual transformation timeline for category: <strong>{compareCategory.toUpperCase()}</strong>.
+              </div>
+
+              {timelineList.length === 0 ? (
+                <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                  No saved weekly reviews found in timeline.
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
+                  {timelineList.map((item, idx) => {
+                    const photoUrl = item.photos[compareCategory];
+                    return (
+                      <div
+                        key={item.id}
+                        style={{
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '12px',
+                          padding: '14px',
+                          background: 'var(--bg-app)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 700 }}>Week {timelineList.length - idx}</span>
+                          <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{item.weekStartDate}</span>
+                        </div>
+
+                        {photoUrl ? (
+                          <div style={{ width: '100%', height: '200px', borderRadius: '8px', overflow: 'hidden', marginBottom: '8px', border: '1px solid var(--border-color)' }}>
+                            <img
+                              src={photoUrl}
+                              alt={`Week ${item.weekStartDate}`}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          </div>
+                        ) : (
+                          <div style={{ height: '200px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-card)', borderRadius: '8px', color: 'var(--text-tertiary)', fontSize: '12px', marginBottom: '8px', border: '1px dashed var(--border-color)' }}>
+                            <Camera size={24} style={{ marginBottom: '4px', opacity: 0.5 }} />
+                            <div>Photo unavailable</div>
+                          </div>
+                        )}
+
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                          Weight: <strong>{item.bodyWeightKg ?? '—'} kg</strong>
+                          {item.flexedBicepCm != null && <span> • Bicep: <strong>{item.flexedBicepCm} cm</strong></span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* SUB-TAB 3 — HISTORICAL RECORDS STREAM */}
+      {activeTab === 'history' && (
+        <div className="card" style={{ padding: '24px' }}>
+          <div className="card-title">
+            <span>Historical Weekly Reviews</span>
+            <span className="badge badge-purple">{historyList.length} Total Saved</span>
           </div>
 
           {historyList.length === 0 ? (
-            <div className="card" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-              No historical weekly reviews saved yet.
+            <div style={{ padding: '36px 0', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '14px' }}>
+              No historical weekly reviews recorded yet. Saved reviews will appear here.
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {historyList.map(item => (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
+              {historyList.map(rec => (
                 <div
-                  key={item.id}
-                  className="card"
+                  key={rec.id}
                   style={{
-                    padding: '18px',
-                    marginBottom: 0,
-                    cursor: 'pointer',
-                    borderColor: selectedHistoryWeek === item.weekStartDate ? 'var(--accent-blue)' : 'var(--border-color)'
+                    padding: '16px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-app)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
                   }}
-                  onClick={() => setSelectedHistoryWeek(selectedHistoryWeek === item.weekStartDate ? null : item.weekStartDate)}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        Week Starting {item.weekStartDate} (to {item.weekEndDate})
-                      </div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                        Weight: <strong>{item.bodyWeightKg || 'N/A'} kg</strong> • Bicep: <strong>{item.flexedBicepCm || 'N/A'} cm</strong> • Compliance: <strong>{item.protocolCompliancePct}%</strong>
-                      </div>
+                  <div>
+                    <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      Week of {rec.weekStartDate} to {rec.weekEndDate}
                     </div>
-                    <span className="badge badge-purple">{item.verdict}</span>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                      Weight: <strong>{rec.bodyWeightKg ?? '—'} kg</strong> • Compliance: <strong>{rec.protocolCompliancePct ?? 100}%</strong> • Verdict: <span className="badge badge-success">{rec.verdict || 'ON_TRACK'}</span>
+                    </div>
                   </div>
 
-                  {selectedHistoryWeek === item.weekStartDate && (
-                    <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border-color)', fontSize: '13px', lineHeight: '1.5' }}>
-                      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '10px' }}>
-                        <span>Chest: <strong>{item.chestCm} cm</strong></span>
-                        <span>Thigh: <strong>{item.thighCm} cm</strong></span>
-                        <span>Height: <strong>{item.morningHeightCm} cm</strong></span>
-                        <span>Complexion: <strong>{item.complexion}</strong></span>
-                        <span>Hair Shedding: <strong>{item.hairShedding}</strong></span>
-                      </div>
-                      <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
-                        <strong>Refinements:</strong> {item.refinementNotes || 'None recorded'}
-                      </p>
-                    </div>
-                  )}
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => {
+                      setCompareWeekA(rec.weekStartDate);
+                      setActiveTab('compare');
+                    }}
+                  >
+                    Compare Photo
+                  </button>
                 </div>
               ))}
             </div>
