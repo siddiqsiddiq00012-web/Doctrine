@@ -5,6 +5,160 @@ import { DailySummaryView } from './DailySummaryView';
 import { CheckCircle2, Circle, Clock, Flame, ShieldAlert, Sparkles, Moon, Sun, ArrowRight, Check, FileText } from 'lucide-react';
 
 
+const ContextSnippet = ({ taskKey, category, activity, dayName }) => {
+  const [open, setOpen] = useState(false);
+
+  const getContext = () => {
+    const actLower = (activity || '').toLowerCase();
+    const keyLower = (taskKey || '').toLowerCase();
+
+    if (category === 'DATA_ENG' || actLower.includes('data engineering')) {
+      return {
+        goal: 'Data Engineering Mastery Goal',
+        reason: 'Part of your ordered Data Engineering roadmap. Completing today\'s session advances prerequisite topics toward full pipeline competency.'
+      };
+    }
+    if (category === 'WORKOUT' || actLower.includes('workout') || actLower.includes('cardio')) {
+      if (dayName === 'MONDAY' || dayName === 'FRIDAY' || actLower.includes('workout a')) {
+        return {
+          goal: 'Strength & Hypertrophy Goal',
+          reason: 'Stimulates primary muscle groups through progressive overload, setting an anabolic tone for muscle growth.'
+        };
+      } else if (dayName === 'WEDNESDAY' || actLower.includes('workout b')) {
+        return {
+          goal: 'Stability & Connective Tissue Goal',
+          reason: 'Reinforces stabilizer muscles, core endurance, and connective tissue integrity for long-term joint health.'
+        };
+      } else {
+        return {
+          goal: 'Cardio & Active Recovery Goal',
+          reason: 'Increases peripheral circulation to shuttle oxygen and essential nutrients to muscle tissues, hair follicles, and skin cells.'
+        };
+      }
+    }
+    if (category === 'POSTURE' || actLower.includes('dead hang') || actLower.includes('wall angel')) {
+      return {
+        goal: 'Spinal Health & Posture Correction Goal',
+        reason: 'Decompresses intervertebral discs and corrects thoracic kyphosis to realign spinal posture.'
+      };
+    }
+    if (category === 'SKINCARE' || actLower.includes('skincare')) {
+      if (actLower.includes('morning') || actLower.includes('cleanse') || actLower.includes('spf')) {
+        return {
+          goal: 'Skin Barrier & Photoprotection Goal',
+          reason: 'Protects skin from UV damage, maintains hydration, and prevents free radical oxidation during daylight hours.'
+        };
+      } else {
+        return {
+          goal: 'Cellular Turnover & Barrier Repair Goal',
+          reason: 'Clears accumulated impurities, delivers active ingredients, and locks in ceramide barrier repair overnight.'
+        };
+      }
+    }
+    if (category === 'HAIR' || actLower.includes('hair') || actLower.includes('scalp') || actLower.includes('dermaroll')) {
+      return {
+        goal: 'Hair Density & Follicle Nourishment Goal',
+        reason: 'Supplies essential fatty acids and stimulates scalp micro-circulation to nourish hair follicles.'
+      };
+    }
+    if (category === 'NUTRITION' || actLower.includes('mass shake') || actLower.includes('dinner') || actLower.includes('kanji')) {
+      if (actLower.includes('mass shake')) {
+        return {
+          goal: 'Caloric MED Goal (2,700 kcal)',
+          reason: 'Provides critical 950–1000 kcal baseline floor to prevent catabolism of muscle, skin, and hair.'
+        };
+      } else if (actLower.includes('glow') || actLower.includes('papaya')) {
+        return {
+          goal: 'Nutrient Density & Skin Brightening Goal',
+          reason: 'Delivers potent carotenoids, nitrates, and vitamin C for gut-skin axis health.'
+        };
+      } else if (actLower.includes('kanji') || actLower.includes('curd')) {
+        return {
+          goal: 'Gut Microflora & Probiotic Goal',
+          reason: 'Enriches gut microbiome to optimize nutrient absorption and reduce systemic inflammation.'
+        };
+      } else {
+        return {
+          goal: 'Caloric MED & Anabolic Nutrition Goal',
+          reason: 'Contributes to daily 2,700 kcal threshold and 100g protein floor to sustain cellular repair.'
+        };
+      }
+    }
+    if (category === 'SLEEP' || actLower.includes('sleep')) {
+      return {
+        goal: 'Growth Hormone & Deep Recovery Goal',
+        reason: 'Triggers peak nocturnal growth hormone release and cellular repair window.'
+      };
+    }
+    if (category === 'NAMAZ' || keyLower.startsWith('namaz_')) {
+      return {
+        goal: 'Spiritual Anchor & Mindfulness Goal',
+        reason: 'Establishes daily spiritual grounding, structured pause, and mental discipline.'
+      };
+    }
+    if (category === 'ANCHOR' || keyLower.startsWith('anchor_')) {
+      return {
+        goal: 'Doctrine Anchor Non-Negotiable',
+        reason: 'Core non-negotiable anchor required to maintain daily momentum even on minimum viable days.'
+      };
+    }
+    return {
+      goal: 'Doctrine Plan',
+      reason: 'Part of today\'s scheduled Doctrine plan.'
+    };
+  };
+
+  const context = getContext();
+
+  return (
+    <div style={{ marginTop: '4px' }}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(!open);
+        }}
+        style={{
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          fontSize: '11px',
+          fontWeight: 600,
+          color: 'var(--accent-blue)',
+          cursor: 'pointer',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}
+      >
+        <span>ⓘ Why this matters</span>
+        <span style={{ fontSize: '9px' }}>{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            marginTop: '6px',
+            padding: '8px 10px',
+            borderRadius: '8px',
+            background: 'var(--card-subtle-bg, #F8FAFC)',
+            border: '1px solid var(--border-color)',
+            fontSize: '12px',
+            lineHeight: '1.4',
+            color: 'var(--text-secondary)'
+          }}
+        >
+          <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '2px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+            Goal: {context.goal}
+          </div>
+          <div>{context.reason}</div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const TodayView = () => {
   const {
     selectedDate,
@@ -308,7 +462,17 @@ export const TodayView = () => {
                   <div className="task-text" style={{ marginTop: '2px' }}>
                     {block.activity}
                   </div>
-                  <div className="task-category">{block.category}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="task-category">{block.category}</div>
+                  </div>
+
+                  {/* FEATURE 12: WHY THIS MATTERS CONTEXTUAL SNIPPET */}
+                  <ContextSnippet
+                    taskKey={block.id}
+                    category={block.category}
+                    activity={block.activity}
+                    dayName={dayName}
+                  />
                 </div>
               </div>
             );

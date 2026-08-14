@@ -385,15 +385,46 @@ router.get(['/', ''], requireAuth, async (req, res) => {
 
     // 8. DYNAMIC PRIMARY ACTION DECISION LOGIC (Doctrine Priority Order)
     if (dayOfWeek === 'SUNDAY' && result.weeklyReview.status === 'ok' && !result.weeklyReview.isCompleted) {
-      result.primaryAction = { type: 'WEEKLY_REVIEW', label: 'Complete Weekly Review', targetTab: 'week' };
+      result.primaryAction = {
+        type: 'WEEKLY_REVIEW',
+        label: 'Complete Weekly Review',
+        targetTab: 'week',
+        goal: 'Sunday System Review & Reset Goal',
+        contextReason: "Track weekly physical progress, calculate compliance deltas, and identify next week's 1% refinement."
+      };
     } else if (result.dataEngineering.status === 'ok' && !result.dataEngineering.isCompleted) {
-      result.primaryAction = { type: 'DATA_ENG', label: 'Continue Data Engineering', targetTab: 'dataeng' };
+      const topicName = result.dataEngineering.topic || 'SQL JOINs';
+      result.primaryAction = {
+        type: 'DATA_ENG',
+        label: 'Continue Data Engineering',
+        targetTab: 'dataeng',
+        goal: 'Data Engineering Mastery Goal',
+        contextReason: `Part of your current ${topicName} stage in the ordered Data Engineering roadmap.`
+      };
     } else if (result.today.status === 'ok' && result.today.completionPercentage < 100) {
-      result.primaryAction = { type: 'DOCTRINE', label: "Complete Today's Doctrine", targetTab: 'today' };
+      result.primaryAction = {
+        type: 'DOCTRINE',
+        label: "Complete Today's Doctrine",
+        targetTab: 'today',
+        goal: 'Caloric MED & Physical Mastery Goal',
+        contextReason: "Completes today's scheduled Doctrine time-blocks and non-negotiable anchors."
+      };
     } else if (result.resources.status === 'ok' && result.resources.needsAttentionCount > 0) {
-      result.primaryAction = { type: 'RESOURCES', label: 'View Resources & Restock', targetTab: 'inventory' };
+      result.primaryAction = {
+        type: 'RESOURCES',
+        label: 'View Resources & Restock',
+        targetTab: 'inventory',
+        goal: 'Resource Intelligence & Stock Security Goal',
+        contextReason: "Covers projected 7-day resource depletion and maintains ingredient stock levels."
+      };
     } else {
-      result.primaryAction = { type: 'SUMMARY', label: 'View Daily Progress', targetTab: 'today' };
+      result.primaryAction = {
+        type: 'SUMMARY',
+        label: 'View Daily Progress',
+        targetTab: 'today',
+        goal: 'Daily Progress Reflection Goal',
+        contextReason: "Reviews today's completed milestones and historical compliance."
+      };
     }
 
     res.json({ success: true, ...result });

@@ -5,6 +5,7 @@ import { dailyExecutions, taskExecutions, doctrineVersions, dailySummaries, deLe
 import { eq, and, desc } from 'drizzle-orm';
 import { cryptoNative } from '../utils/crypto.js';
 import { WEEKLY_DOCTRINE, PREPARED_FOR_TOMORROW_TEMPLATES } from '../../src/data/doctrineData.js';
+import { getTaskContext } from '../utils/contextualReasoning.js';
 
 const router = Router();
 
@@ -35,6 +36,11 @@ async function getOrCreateDailyExecution(userId, dateStr) {
     const missedCount = tasks.filter((t) => t.status === 'MISSED').length;
     const completionPercentage = totalTasksCount > 0 ? Math.round((completedCount / totalTasksCount) * 100) : 0;
 
+    const contextualTasks = tasks.map((t) => ({
+      ...t,
+      context: getTaskContext(t.taskKey, t.category, t.taskName, existing.dayOfWeek || 'MONDAY')
+    }));
+
     return {
       execution: {
         ...existing,
@@ -44,7 +50,7 @@ async function getOrCreateDailyExecution(userId, dateStr) {
         skippedCount,
         missedCount,
       },
-      tasks,
+      tasks: contextualTasks,
     };
   }
 
@@ -159,6 +165,11 @@ async function getOrCreateDailyExecution(userId, dateStr) {
   const missedCount = seededTasks.filter((t) => t.status === 'MISSED').length;
   const completionPercentage = totalTasksCount > 0 ? Math.round((completedCount / totalTasksCount) * 100) : 0;
 
+  const contextualSeededTasks = seededTasks.map((t) => ({
+    ...t,
+    context: getTaskContext(t.taskKey, t.category, t.taskName, dayOfWeek)
+  }));
+
   return {
     execution: {
       ...newExecution,
@@ -168,7 +179,7 @@ async function getOrCreateDailyExecution(userId, dateStr) {
       skippedCount,
       missedCount,
     },
-    tasks: seededTasks,
+    tasks: contextualSeededTasks,
   };
 }
 

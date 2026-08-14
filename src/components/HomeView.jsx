@@ -181,6 +181,11 @@ export const HomeView = () => {
               <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
                 {primaryAction.label}
               </div>
+              {primaryAction.contextReason && (
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', fontStyle: 'italic' }}>
+                  Why this matters: {primaryAction.contextReason}
+                </div>
+              )}
             </div>
 
             <button
