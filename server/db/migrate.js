@@ -7,18 +7,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export function runMigrations() {
-  if (process.env.VERCEL || process.env.TURSO_DATABASE_URL) {
-    console.log('[Migrations] Skipping synchronous local migrations on Vercel serverless environment.');
-    return;
-  }
   try {
     const migrationsFolder = path.resolve(__dirname, '../../drizzle');
     console.log('Running database migrations from:', migrationsFolder);
     migrate(db, { migrationsFolder });
     console.log('Database migrations completed successfully.');
   } catch (error) {
-    console.error('Failed to run database migrations:', error);
-    // Non-fatal warning log if migration folder missing in production
+    console.warn('[Migrations Warning] Non-fatal migration check:', error.message);
   }
 }
 
