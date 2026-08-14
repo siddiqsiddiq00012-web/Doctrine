@@ -25,7 +25,9 @@ if (tursoUrl) {
   });
   db = drizzle(client, { schema });
 } else {
-  const dbPath = process.env.DATABASE_URL || 'doctrine.db';
+  const isVercel = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
+  const defaultDbPath = isVercel ? '/tmp/doctrine.db' : 'doctrine.db';
+  const dbPath = process.env.DATABASE_URL || defaultDbPath;
   sqlite = new Database(dbPath);
   sqlite.pragma('foreign_keys = ON');
   db = drizzle(sqlite, { schema });
