@@ -357,79 +357,6 @@ export const TodayView = () => {
         </div>
       </div>
 
-      {/* ANCHORS & NON-NEGOTIABLES */}
-      <div className="card">
-        <div className="card-title">
-          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Flame size={18} color="var(--accent-amber)" /> Anchors & Non-Negotiable Rules
-          </span>
-          <span className="badge badge-warning">Core Directives</span>
-        </div>
-        <div className="card-subtitle">
-          Rule: Mass Shake + Morning Skincare + Evening Skincare mandatory every day.
-        </div>
-
-        <div className="grid-2">
-          <div
-            className={`check-item ${currentLog.anchors.massShakeTaken ? 'completed' : ''}`}
-            onClick={() => toggleAnchor(selectedDate, 'massShakeTaken')}
-          >
-            <div className="checkbox-custom">
-              {currentLog.anchors.massShakeTaken && <Check size={14} />}
-            </div>
-            <div>
-              <div className="task-text">Mass Shake (~1000 kcal) Drank</div>
-              <div className="task-category">Anabolic Anchor</div>
-            </div>
-          </div>
-
-          <div
-            className={`check-item ${currentLog.anchors.amSkincare ? 'completed' : ''}`}
-            onClick={() => toggleAnchor(selectedDate, 'amSkincare')}
-          >
-            <div className="checkbox-custom">
-              {currentLog.anchors.amSkincare && <Check size={14} />}
-            </div>
-            <div>
-              <div className="task-text">Morning Skincare & SPF 50+ Completed</div>
-              <div className="task-category">Skin Barrier Anchor</div>
-            </div>
-          </div>
-
-          <div
-            className={`check-item ${currentLog.anchors.pmSkincare ? 'completed' : ''}`}
-            onClick={() => toggleAnchor(selectedDate, 'pmSkincare')}
-          >
-            <div className="checkbox-custom">
-              {currentLog.anchors.pmSkincare && <Check size={14} />}
-            </div>
-            <div>
-              <div className="task-text">Evening Skincare Routine Completed</div>
-              <div className="task-category">Skin Repair Anchor (Priority)</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ACTIVE INGREDIENT SAFETY BANNER */}
-      <div className="card" style={{ background: 'linear-gradient(135deg, #FFFDF8 0%, #FFF9EF 100%)', borderColor: '#FFE8C8' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Sparkles size={20} color="var(--accent-amber)" />
-          <div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#8A5300' }}>
-              TODAY'S ACTIVE INGREDIENT ROUTINE ({dayName})
-            </div>
-            <div style={{ fontSize: '13px', color: '#593800', marginTop: '2px' }}>
-              {isMonWedFriAM ? (
-                <><strong>Morning Active:</strong> Salicylic Acid + Potato-Aloe Extract (Do not layer with Niacinamide)</>
-              ) : (
-                <><strong>Evening Active:</strong> Niacinamide (PM Routine only — keep Morning simple with Cleanse + Moisturiser + SPF)</>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* TODAY'S TIME-BLOCK TIMELINE */}
       <div className="card">
         <div className="card-title">
@@ -481,6 +408,79 @@ export const TodayView = () => {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* ACTIVE INGREDIENT SAFETY BANNER */}
+      <div className="card" style={{ background: 'linear-gradient(135deg, #FFFDF8 0%, #FFF9EF 100%)', borderColor: '#FFE8C8' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Sparkles size={20} color="var(--accent-amber)" />
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#8A5300' }}>
+              TODAY'S ACTIVE INGREDIENT ROUTINE ({dayName})
+            </div>
+            <div style={{ fontSize: '13px', color: '#593800', marginTop: '2px' }}>
+              {isMonWedFriAM ? (
+                <><strong>Morning Active:</strong> Salicylic Acid + Potato-Aloe Extract (Do not layer with Niacinamide)</>
+              ) : (
+                <><strong>Evening Active:</strong> Niacinamide (PM Routine only — keep Morning simple with Cleanse + Moisturiser + SPF)</>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ANCHORS & NON-NEGOTIABLES */}
+      <div className="card">
+        <div className="card-title">
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Flame size={18} color="var(--accent-amber)" /> Anchors & Non-Negotiable Rules
+          </span>
+          <span className="badge badge-warning">Core Directives</span>
+        </div>
+        <div className="card-subtitle">
+          Rule: Mass Shake + Morning Skincare + Evening Skincare mandatory every day.
+        </div>
+
+        <div className="grid-2">
+          <div
+            className={`check-item ${currentLog.anchors.massShakeTaken ? 'completed' : ''}`}
+            onClick={() => toggleAnchor(selectedDate, 'massShakeTaken')}
+          >
+            <div className="checkbox-custom">
+              {currentLog.anchors.massShakeTaken && <Check size={14} />}
+            </div>
+            <div>
+              <div className="task-text">Mass Shake (~1000 kcal) Drank</div>
+              <div className="task-category">Anabolic Anchor</div>
+            </div>
+          </div>
+
+          <div
+            className={`check-item ${currentLog.anchors.amSkincare ? 'completed' : ''}`}
+            onClick={() => toggleAnchor(selectedDate, 'amSkincare')}
+          >
+            <div className="checkbox-custom">
+              {currentLog.anchors.amSkincare && <Check size={14} />}
+            </div>
+            <div>
+              <div className="task-text">Morning Skincare & SPF 50+ Completed</div>
+              <div className="task-category">Skin Barrier Anchor</div>
+            </div>
+          </div>
+
+          <div
+            className={`check-item ${currentLog.anchors.pmSkincare ? 'completed' : ''}`}
+            onClick={() => toggleAnchor(selectedDate, 'pmSkincare')}
+          >
+            <div className="checkbox-custom">
+              {currentLog.anchors.pmSkincare && <Check size={14} />}
+            </div>
+            <div>
+              <div className="task-text">Evening Skincare Routine Completed</div>
+              <div className="task-category">Skin Repair Anchor (Priority)</div>
+            </div>
+          </div>
         </div>
       </div>
 
