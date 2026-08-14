@@ -115,8 +115,8 @@ export const ProfileView = () => {
   const handleSaveProfile = async (e) => {
     e.preventDefault();
 
-    if (editBio.length > 160) {
-      setStatusMessage({ type: 'error', text: 'Bio cannot exceed 160 characters' });
+    if (editBio.length > 180) {
+      setStatusMessage({ type: 'error', text: 'Bio cannot exceed 180 characters' });
       return;
     }
 
@@ -551,15 +551,15 @@ export const ProfileView = () => {
             <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
               Personal Bio
             </label>
-            <span style={{ fontSize: '12px', color: editBio.length > 160 ? 'var(--accent-red)' : 'var(--text-tertiary)' }}>
-              {editBio.length} / 160
+            <span style={{ fontSize: '12px', color: editBio.length > 180 ? 'var(--accent-red)' : 'var(--text-tertiary)' }}>
+              {editBio.length} / 180
             </span>
           </div>
 
           <textarea
             value={editBio}
             onChange={(e) => setEditBio(e.target.value)}
-            maxLength={160}
+            maxLength={180}
             rows={3}
             placeholder="Building my future one system at a time."
             className="form-input"

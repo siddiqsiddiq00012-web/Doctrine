@@ -203,10 +203,10 @@ const handleUpdatePreferences = async (req, res) => {
     const allowedWeekStarts = ['MONDAY', 'SUNDAY'];
 
     // Bio character validation
-    if (bio !== undefined && typeof bio === 'string' && bio.length > 160) {
+    if (bio !== undefined && typeof bio === 'string' && bio.length > 180) {
       return res.status(400).json({
         error: 'Validation Error',
-        message: 'Bio cannot exceed 160 characters'
+        message: 'Bio cannot exceed 180 characters'
       });
     }
 
