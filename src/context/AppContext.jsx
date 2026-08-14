@@ -35,16 +35,41 @@ export const AppProvider = ({ children }) => {
   const [activeTab, setActiveTab] = useState('home');
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
 
-  // User Preferences & Personal Profile State (Permanently standardized on 12-hour AM/PM)
-  const [userPreferences, setUserPreferences] = useState({
-    customDisplayName: '',
-    bio: '',
-    customAvatarUrl: null,
-    theme: 'light',
-    timeFormat: '12h', // Permanently standardized on 12-hour AM/PM
-    weekStart: 'MONDAY',
-    reducedMotion: 'system' // 'system' | 'reduced'
+  // User Preferences & Personal Profile State with LocalStorage persistence to ensure DP never disappears on refresh
+  const [userPreferences, setUserPreferences] = useState(() => {
+    try {
+      const saved = localStorage.getItem('doctrine_user_preferences');
+      return saved ? JSON.parse(saved) : {
+        customDisplayName: '',
+        bio: '',
+        customAvatarUrl: null,
+        theme: 'light',
+        timeFormat: '12h',
+        weekStart: 'MONDAY',
+        reducedMotion: 'system'
+      };
+    } catch (e) {
+      return {
+        customDisplayName: '',
+        bio: '',
+        customAvatarUrl: null,
+        theme: 'light',
+        timeFormat: '12h',
+        weekStart: 'MONDAY',
+        reducedMotion: 'system'
+      };
+    }
   });
+
+  useEffect(() => {
+    try {
+      if (userPreferences) {
+        localStorage.setItem('doctrine_user_preferences', JSON.stringify(userPreferences));
+      }
+    } catch (e) {
+      console.error('Failed to sync userPreferences to localStorage:', e);
+    }
+  }, [userPreferences]);
 
   // Backend DB Daily Executions cache with LocalStorage persistence fallback
   const [dailyLogs, setDailyLogs] = useState(() => {
@@ -120,6 +145,7 @@ export const AppProvider = ({ children }) => {
         setUserPreferences(prev => ({
           ...prev,
           ...data,
+          customAvatarUrl: (data.customAvatarUrl !== null && data.customAvatarUrl !== undefined) ? data.customAvatarUrl : prev.customAvatarUrl,
           timeFormat: '12h' // Ensure standardized 12h AM/PM
         }));
       }

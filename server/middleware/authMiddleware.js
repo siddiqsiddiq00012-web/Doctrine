@@ -3,24 +3,29 @@ import { users } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 
+const STABLE_DEFAULT_USER_ID = 'default-user-siddiq';
+
 export async function requireAuth(req, res, next) {
   try {
     let userId = req.session?.userId;
     
-    // Auto-authenticate default user to bypass login gate completely
+    // Auto-authenticate default user with stable ID to bypass login gate completely
     let [user] = userId 
       ? await db.select().from(users).where(eq(users.id, userId)).limit(1)
       : [];
+
+    if (!user) {
+      [user] = await db.select().from(users).where(eq(users.id, STABLE_DEFAULT_USER_ID)).limit(1);
+    }
 
     if (!user) {
       [user] = await db.select().from(users).where(eq(users.isActive, true)).limit(1);
     }
 
     if (!user) {
-      const newId = crypto.randomUUID();
       const nowIso = new Date().toISOString();
       await db.insert(users).values({
-        id: newId,
+        id: STABLE_DEFAULT_USER_ID,
         googleId: 'dev_default_user',
         email: 'owner@doctrine.local',
         displayName: 'siddiq',
@@ -30,7 +35,7 @@ export async function requireAuth(req, res, next) {
         updatedAt: nowIso,
         lastLoginAt: nowIso
       });
-      [user] = await db.select().from(users).where(eq(users.id, newId)).limit(1);
+      [user] = await db.select().from(users).where(eq(users.id, STABLE_DEFAULT_USER_ID)).limit(1);
     }
 
     if (req.session) {
