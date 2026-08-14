@@ -35,10 +35,10 @@ const MainContent = () => {
     );
   }
 
-  // Render Login View if Unauthenticated
-  if (!user) {
-    return <LoginView />;
-  }
+  // Login gate temporarily bypassed for instant full-site access
+  // if (!user) {
+  //   return <LoginView />;
+  // }
 
   const renderTab = () => {
     switch (activeTab) {

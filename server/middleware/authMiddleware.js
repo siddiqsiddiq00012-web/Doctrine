@@ -1,26 +1,45 @@
 import { db } from '../db/index.js';
 import { users } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
+import crypto from 'crypto';
 
 export async function requireAuth(req, res, next) {
   try {
-    const userId = req.session?.userId;
-    if (!userId) {
-      return res.status(401).json({ error: 'Unauthenticated', message: 'Active session required' });
+    let userId = req.session?.userId;
+    
+    // Auto-authenticate default user to bypass login gate completely
+    let [user] = userId 
+      ? await db.select().from(users).where(eq(users.id, userId)).limit(1)
+      : [];
+
+    if (!user) {
+      [user] = await db.select().from(users).where(eq(users.isActive, true)).limit(1);
     }
 
-    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-
-    if (!user || !user.isActive) {
-      req.session.destroy(() => {});
-      return res.status(401).json({ error: 'Unauthenticated', message: 'User account not found or deactivated' });
+    if (!user) {
+      const newId = crypto.randomUUID();
+      const nowIso = new Date().toISOString();
+      await db.insert(users).values({
+        id: newId,
+        googleId: 'dev_default_user',
+        email: 'owner@doctrine.local',
+        displayName: 'siddiq',
+        avatarUrl: '',
+        isActive: true,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        lastLoginAt: nowIso
+      });
+      [user] = await db.select().from(users).where(eq(users.id, newId)).limit(1);
     }
 
-    // Attach verified authenticated user object to request
+    if (req.session) {
+      req.session.userId = user.id;
+    }
     req.user = user;
     next();
   } catch (error) {
     console.error('Error in requireAuth middleware:', error);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    next();
   }
 }
