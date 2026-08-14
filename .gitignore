@@ -40,3 +40,5 @@ lerna-debug.log*
 
 # OS files
 Thumbs.db
+
+# Environment secrets.env
