@@ -268,24 +268,39 @@ export const TodayView = () => {
         </div>
       </div>
 
-      {/* HERO "WHAT NOW?" CARD */}
+      {/* HERO "WHAT NOW?" EXECUTION COMMAND SURFACE */}
       {selectedDate === getTodayStr() && currentBlock && (
         <div className="hero-what-now">
-          <div className="what-now-badge">
-            <Clock size={14} /> WHAT NOW? • {currentBlock.time}
-          </div>
-          <div className="current-activity-title">
-            {currentBlock.activity}
-          </div>
-          <div className="current-activity-time">
-            Category: <span className="badge badge-purple">{currentBlock.category}</span>
+          <div className="what-now-meta">
+            <span>CURRENT TIME BLOCK</span>
+            <span>•</span>
+            <span>{currentBlock.time}</span>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', marginTop: '14px', marginBottom: '14px' }}>
+          <div className="what-now-activity">
+            {currentBlock.activity}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <div className="what-now-subtext">
+              <span className="badge badge-purple">{currentBlock.category}</span>
+              <span className={`badge ${currentLog.completedTasks[currentBlock.id]?.completed ? 'badge-success' : 'badge-warning'}`}>
+                {currentLog.completedTasks[currentBlock.id]?.completed ? '✓ Task Completed' : '○ Action Pending'}
+              </span>
+            </div>
+
             <button
               className={`btn ${currentLog.completedTasks[currentBlock.id]?.completed ? 'btn-secondary' : 'btn-primary'}`}
               onClick={() => toggleTask(selectedDate, currentBlock.id)}
-              style={{ flex: 1 }}
+              style={{
+                minHeight: '44px',
+                padding: '10px 20px',
+                fontSize: '14px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
             >
               {currentLog.completedTasks[currentBlock.id]?.completed ? (
                 <> <Check size={16} /> Completed </>
@@ -296,12 +311,14 @@ export const TodayView = () => {
           </div>
 
           {nextBlock && (
-            <div className="next-up-box">
+            <div className="what-now-next-row">
               <div>
-                <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Coming Next: </span>
-                <span className="next-up-title">{nextBlock.time} — {nextBlock.activity}</span>
+                <strong style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-tertiary)', marginRight: '6px' }}>
+                  COMING NEXT
+                </strong>
+                <span>{nextBlock.time} — {nextBlock.activity}</span>
               </div>
-              <ArrowRight size={16} color="var(--text-tertiary)" />
+              <ArrowRight size={15} color="var(--text-tertiary)" />
             </div>
           )}
         </div>
