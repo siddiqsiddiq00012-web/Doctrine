@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "server": "node server/index.js",
-    "test": "node --test server/tests/authAndData.test.js",
+    "test": "node --test --test-concurrency=1 server/tests/*.test.js",
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview"
