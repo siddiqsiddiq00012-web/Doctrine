@@ -32,7 +32,25 @@ export const AppProvider = ({ children }) => {
 
   const [user, setUser] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
-  const [activeTab, setActiveTab] = useState('home');
+  // Active Tab state with LocalStorage persistence to remain on current screen on refresh
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const savedTab = localStorage.getItem('doctrine_active_tab');
+      return savedTab || 'home';
+    } catch (e) {
+      return 'home';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (activeTab) {
+        localStorage.setItem('doctrine_active_tab', activeTab);
+      }
+    } catch (e) {
+      console.error('Failed to save activeTab to localStorage:', e);
+    }
+  }, [activeTab]);
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
 
   // User Preferences & Personal Profile State with LocalStorage persistence to ensure DP never disappears on refresh
