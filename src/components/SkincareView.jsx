@@ -72,15 +72,33 @@ export const SkincareView = () => {
   }
 
   if (error && !skincareData) {
+    const handleQuickSignIn = async () => {
+      try {
+        const res = await fetch('/api/auth/dev-login', { method: 'POST', credentials: 'include' });
+        if (res.ok) {
+          fetchSkincareData();
+        } else {
+          window.location.href = '/api/auth/dev-login';
+        }
+      } catch (e) {
+        window.location.href = '/api/auth/dev-login';
+      }
+    };
+
     return (
       <div style={{ maxWidth: '840px', margin: '0 auto', padding: '40px 20px' }}>
         <div className="card" style={{ padding: '30px', textAlign: 'center', borderColor: 'var(--accent-red)' }}>
           <AlertCircle size={32} color="var(--accent-red)" style={{ margin: '0 auto 12px' }} />
           <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>Unable to load today's routine</h3>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px', marginBottom: '16px' }}>{error}</p>
-          <button className="btn btn-primary" onClick={fetchSkincareData}>
-            <RefreshCw size={14} /> Retry
-          </button>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button className="btn btn-primary" onClick={handleQuickSignIn}>
+              Quick Sign In / Establish Session
+            </button>
+            <button className="btn btn-secondary" onClick={fetchSkincareData}>
+              <RefreshCw size={14} /> Retry
+            </button>
+          </div>
         </div>
       </div>
     );

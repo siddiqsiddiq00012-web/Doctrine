@@ -1,10 +1,37 @@
-import React from 'react';
-import { ShieldCheck, LogIn } from 'lucide-react';
+import React, { useState } from 'react';
+import { ShieldCheck, LogIn, Key, RefreshCw } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
 export const LoginView = () => {
+  const { checkAuth } = useApp();
+  const [devLoggingIn, setDevLoggingIn] = useState(false);
+
   const handleGoogleLogin = () => {
     // Redirect browser to server OAuth endpoint
     window.location.href = '/api/auth/google';
+  };
+
+  const handleDevLogin = async () => {
+    setDevLoggingIn(true);
+    try {
+      const res = await fetch('/api/auth/dev-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+      if (res.ok) {
+        if (checkAuth) await checkAuth();
+        else window.location.href = '/';
+      } else {
+        // Fallback GET redirect
+        window.location.href = '/api/auth/dev-login';
+      }
+    } catch (e) {
+      console.error('Dev login error:', e);
+      window.location.href = '/api/auth/dev-login';
+    } finally {
+      setDevLoggingIn(false);
+    }
   };
 
   return (
@@ -51,11 +78,11 @@ export const LoginView = () => {
           </p>
         </div>
 
-        <div style={{ width: '100%', borderTop: '1px solid var(--border-color, #eee)', my: '12px' }} />
+        <div style={{ width: '100%', borderTop: '1px solid var(--border-color, #eee)', margin: '12px 0' }} />
 
-        <div style={{ width: '100%' }}>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary, #888)', marginBottom: '16px' }}>
-            Sign in with your Google account to access your personal persistent schedule and historical logs.
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary, #888)', marginBottom: '8px' }}>
+            Sign in to access your personal persistent schedule and historical logs.
           </p>
 
           <button
@@ -63,23 +90,23 @@ export const LoginView = () => {
             className="btn btn-primary"
             style={{
               width: '100%',
-              padding: '14px 20px',
-              fontSize: '15px',
+              padding: '12px 20px',
+              fontSize: '14px',
               fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '12px',
+              gap: '10px',
               borderRadius: '10px',
               backgroundColor: '#4285F4',
               color: '#ffffff',
               border: 'none',
               cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(66, 133, 244, 0.3)',
+              boxShadow: '0 4px 12px rgba(66, 133, 244, 0.25)',
               transition: 'all 0.2s ease'
             }}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24">
+            <svg width="18" height="18" viewBox="0 0 24 24">
               <path fill="#ffffff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
               <path fill="#ffffff" opacity="0.9" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
               <path fill="#ffffff" opacity="0.8" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
@@ -87,10 +114,31 @@ export const LoginView = () => {
             </svg>
             <span>Continue with Google</span>
           </button>
+
+          {/* QUICK LOCAL DEV LOGIN BUTTON */}
+          <button
+            onClick={handleDevLogin}
+            disabled={devLoggingIn}
+            className="btn btn-secondary"
+            style={{
+              width: '100%',
+              padding: '12px 20px',
+              fontSize: '14px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              borderRadius: '10px'
+            }}
+          >
+            {devLoggingIn ? <RefreshCw size={16} className="spin" /> : <Key size={16} />}
+            <span>Quick Local Dev Sign In</span>
+          </button>
         </div>
 
         <div style={{ fontSize: '11px', color: 'var(--text-secondary, #aaa)', marginTop: '8px' }}>
-          Secure OAuth 2.0 Authentication • Persistent SQLite Storage
+          Secure Session Authentication • Persistent SQLite Storage
         </div>
       </div>
     </div>

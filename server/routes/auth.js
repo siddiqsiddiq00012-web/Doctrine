@@ -183,4 +183,84 @@ router.post('/logout', (req, res) => {
   });
 });
 
+// 5. Development Local Session Login Endpoint
+const handleDevLogin = async (req, res, isGetRedirect = false) => {
+  try {
+    const defaultGoogleId = 'dev_local_user_google_id';
+    const defaultEmail = 'owner@doctrine.local';
+    const defaultName = 'Doctrine Owner';
+
+    // 1. Check if dev user exists
+    let [targetUser] = await db.select().from(users).where(eq(users.googleId, defaultGoogleId)).limit(1);
+
+    // 2. If not, check if any active user exists in DB
+    if (!targetUser) {
+      [targetUser] = await db.select().from(users).where(eq(users.isActive, true)).limit(1);
+    }
+
+    let userId;
+    const nowIso = new Date().toISOString();
+
+    if (targetUser) {
+      userId = targetUser.id;
+      await db.update(users)
+        .set({ lastLoginAt: nowIso, updatedAt: nowIso })
+        .where(eq(users.id, userId));
+    } else {
+      userId = cryptoNative.randomUUID();
+      await db.insert(users).values({
+        id: userId,
+        googleId: defaultGoogleId,
+        email: defaultEmail,
+        displayName: defaultName,
+        avatarUrl: '',
+        isActive: true,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        lastLoginAt: nowIso
+      });
+
+      const doctrineVersionId = cryptoNative.randomUUID();
+      await db.insert(doctrineVersions).values({
+        id: doctrineVersionId,
+        userId,
+        versionNumber: 1,
+        title: 'Doctrine v1 (Initial)',
+        payload: JSON.stringify(WEEKLY_DOCTRINE),
+        activeFrom: nowIso,
+        createdAt: nowIso
+      });
+    }
+
+    req.session.userId = userId;
+
+    req.session.save((err) => {
+      if (err) {
+        console.error('Dev session save error:', err);
+        return res.status(500).json({ error: 'Session save failure' });
+      }
+
+      if (isGetRedirect) {
+        return res.redirect('http://localhost:5173/?login=success');
+      }
+
+      res.json({
+        success: true,
+        authenticated: true,
+        user: {
+          id: userId,
+          email: targetUser ? targetUser.email : defaultEmail,
+          displayName: targetUser ? targetUser.displayName : defaultName
+        }
+      });
+    });
+  } catch (error) {
+    console.error('Dev Login Failure:', error);
+    res.status(500).json({ error: 'Dev Login Failed', details: error.message });
+  }
+};
+
+router.post('/dev-login', (req, res) => handleDevLogin(req, res, false));
+router.get('/dev-login', (req, res) => handleDevLogin(req, res, true));
+
 export default router;
