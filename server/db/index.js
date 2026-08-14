@@ -15,6 +15,9 @@ const tursoUrl = process.env.TURSO_DATABASE_URL || (process.env.DATABASE_URL && 
 const isVercel = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
 const isValidTursoUrl = tursoUrl && !tursoUrl.includes('....') && !tursoUrl.includes('placeholder') && !tursoUrl.includes('undefined');
 
+let db;
+let sqlite = null;
+
 if (isValidTursoUrl) {
   try {
     const { createClient } = await import('@libsql/client');
