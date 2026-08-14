@@ -18,6 +18,84 @@ const isValidTursoUrl = tursoUrl && !tursoUrl.includes('....') && !tursoUrl.incl
 let db;
 let sqlite = null;
 
+function initSqliteSchema(sqliteDb) {
+  if (!sqliteDb) return;
+  try {
+    sqliteDb.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        google_id TEXT UNIQUE,
+        email TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        avatar_url TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        last_login_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        expires_at INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS user_preferences (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL UNIQUE REFERENCES users(id),
+        custom_display_name TEXT,
+        bio TEXT,
+        custom_avatar_url TEXT,
+        theme TEXT NOT NULL DEFAULT 'light',
+        reduced_motion TEXT NOT NULL DEFAULT 'standard',
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS doctrine_versions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        version_number INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        active_from TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS daily_executions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        execution_date TEXT NOT NULL,
+        time_blocks_json TEXT NOT NULL,
+        namaz_json TEXT NOT NULL,
+        anchors_json TEXT NOT NULL,
+        prep_tomorrow_json TEXT NOT NULL,
+        compliance_score REAL NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS task_executions (
+        id TEXT PRIMARY KEY,
+        execution_id TEXT NOT NULL REFERENCES daily_executions(id),
+        user_id TEXT NOT NULL REFERENCES users(id),
+        execution_date TEXT NOT NULL,
+        task_key TEXT NOT NULL,
+        task_name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'SCHEDULED',
+        completed_at TEXT,
+        created_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS daily_summaries (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id),
+        summary_date TEXT NOT NULL,
+        summary_text TEXT NOT NULL,
+        model_used TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+    `);
+  } catch (e) {
+    console.warn('[SQLite Init Schema Warning]', e.message);
+  }
+}
+
 if (isValidTursoUrl) {
   try {
     const { createClient } = await import('@libsql/client');
@@ -32,6 +110,7 @@ if (isValidTursoUrl) {
     const defaultDbPath = isVercel ? '/tmp/doctrine.db' : 'doctrine.db';
     sqlite = new Database(defaultDbPath);
     sqlite.pragma('foreign_keys = ON');
+    initSqliteSchema(sqlite);
     db = drizzle(sqlite, { schema });
   }
 } else {
@@ -41,6 +120,7 @@ if (isValidTursoUrl) {
     : (process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith('libsql') && !process.env.DATABASE_URL.startsWith('http') ? process.env.DATABASE_URL : 'doctrine.db');
   sqlite = new Database(dbPath);
   sqlite.pragma('foreign_keys = ON');
+  initSqliteSchema(sqlite);
   db = drizzle(sqlite, { schema });
 }
 
