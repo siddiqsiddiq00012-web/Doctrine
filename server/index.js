@@ -7,6 +7,10 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 import { runMigrations } from './db/migrate.js';
+import { requireAuth } from './middleware/authMiddleware.js';
+import { db } from './db/index.js';
+import { progressPhotos } from './db/schema.js';
+import { eq, and } from 'drizzle-orm';
 import authRoutes from './routes/auth.js';
 import historyRoutes from './routes/history.js';
 import userRoutes from './routes/user.js';
