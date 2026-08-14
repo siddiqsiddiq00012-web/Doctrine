@@ -145,34 +145,44 @@ router.get('/google/callback', async (req, res) => {
 // 3. Get Current Authenticated Session Profile
 router.get('/me', async (req, res) => {
   try {
+    const isProduction = Boolean(process.env.VERCEL || process.env.VERCEL_ENV || process.env.NODE_ENV === 'production');
     let userId = req.session?.userId;
-    let [user] = userId 
-      ? await db.select().from(users).where(eq(users.id, userId)).limit(1)
-      : [];
+    let user = null;
 
-    if (!user) {
-      [user] = await db.select().from(users).where(eq(users.isActive, true)).limit(1);
+    if (userId) {
+      const [foundUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+      user = foundUser || null;
+    }
+
+    // In local non-production environments only, fall back to first active user if unauthenticated
+    if (!user && !isProduction) {
+      const [foundActive] = await db.select().from(users).where(eq(users.isActive, true)).limit(1);
+      user = foundActive || null;
+
+      if (!user) {
+        const newId = cryptoNative.randomUUID();
+        const nowIso = new Date().toISOString();
+        await db.insert(users).values({
+          id: newId,
+          googleId: 'dev_default_user',
+          email: 'owner@doctrine.local',
+          displayName: 'siddiq',
+          avatarUrl: '',
+          isActive: true,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+          lastLoginAt: nowIso
+        });
+        [user] = await db.select().from(users).where(eq(users.id, newId)).limit(1);
+      }
+
+      if (req.session && user) {
+        req.session.userId = user.id;
+      }
     }
 
     if (!user) {
-      const newId = cryptoNative.randomUUID();
-      const nowIso = new Date().toISOString();
-      await db.insert(users).values({
-        id: newId,
-        googleId: 'dev_default_user',
-        email: 'owner@doctrine.local',
-        displayName: 'siddiq',
-        avatarUrl: '',
-        isActive: true,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-        lastLoginAt: nowIso
-      });
-      [user] = await db.select().from(users).where(eq(users.id, newId)).limit(1);
-    }
-
-    if (req.session) {
-      req.session.userId = user.id;
+      return res.json({ authenticated: false, user: null });
     }
 
     res.json({

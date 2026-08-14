@@ -154,21 +154,28 @@ export const AppProvider = ({ children }) => {
     }
   });
 
-  // 1. Fetch User Preferences from Backend DB
+  // 1. Fetch User Preferences from Backend DB (Authoritative Database Source of Truth)
   const fetchUserPreferences = useCallback(async () => {
     try {
       const res = await fetch('/api/user/preferences', { credentials: 'include' });
       if (res.ok) {
         const data = await safeJsonParse(res);
+        // Successful authoritative response -> accept database state
         setUserPreferences(prev => ({
-          ...prev,
-          ...data,
-          customAvatarUrl: (data.customAvatarUrl !== undefined) ? data.customAvatarUrl : prev.customAvatarUrl,
-          timeFormat: '12h' // Ensure standardized 12h AM/PM
+          userId: data.userId || prev.userId || null,
+          customDisplayName: data.customDisplayName !== undefined ? data.customDisplayName : prev.customDisplayName,
+          bio: data.bio !== undefined ? data.bio : prev.bio,
+          customAvatarUrl: data.customAvatarUrl !== undefined ? data.customAvatarUrl : prev.customAvatarUrl,
+          theme: data.theme || prev.theme || 'light',
+          timeFormat: '12h',
+          weekStart: data.weekStart || prev.weekStart || 'MONDAY',
+          reducedMotion: prev.reducedMotion || 'system'
         }));
+      } else {
+        console.warn('[AppContext] User preferences fetch returned non-200 status, preserving local UI state');
       }
     } catch (e) {
-      console.error('Failed to fetch user preferences:', e);
+      console.error('[AppContext] Network failure fetching user preferences, preserving local UI state:', e);
     }
   }, []);
 

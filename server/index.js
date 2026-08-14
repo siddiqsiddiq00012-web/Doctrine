@@ -9,8 +9,8 @@ import { fileURLToPath } from 'url';
 import { runMigrations } from './db/migrate.js';
 import { requireAuth } from './middleware/authMiddleware.js';
 import { db } from './db/index.js';
-import { users, dailySummaries, progressPhotos } from './db/schema.js';
-import { eq, and } from 'drizzle-orm';
+import { users, userPreferences, sessions, dailySummaries, progressPhotos } from './db/schema.js';
+import { eq, and, sql } from 'drizzle-orm';
 import authRoutes from './routes/auth.js';
 import historyRoutes from './routes/history.js';
 import userRoutes from './routes/user.js';
@@ -183,6 +183,51 @@ app.use('/dashboard', dashboardRoutes);
 
 app.use('/api/skincare', skincareRoutes);
 app.use('/skincare', skincareRoutes);
+
+// Safe Production Database Diagnostic Endpoint (Boolean-Only, Sensitive Values Never Exposed)
+const handleDbDiag = async (req, res) => {
+  const diagSecret = process.env.CRON_SECRET || process.env.SESSION_SECRET;
+  const providedSecret = req.headers['x-diag-secret'] || req.query.secret;
+
+  if (isProduction && diagSecret && providedSecret !== diagSecret) {
+    return res.status(401).json({ error: 'Unauthorized diagnostic request' });
+  }
+
+  try {
+    const tursoUrl = process.env.TURSO_DATABASE_URL || '';
+    const isTursoConfigured = Boolean(tursoUrl && (tursoUrl.startsWith('libsql://') || tursoUrl.startsWith('https://')));
+    const isTursoTokenConfigured = Boolean(process.env.TURSO_AUTH_TOKEN);
+
+    // Verify DB connectivity safely using standard count query
+    const [userCount] = await db.select({ count: sql`count(*)` }).from(users);
+    const [prefCount] = await db.select({ count: sql`count(*)` }).from(userPreferences);
+    const [sessionCount] = await db.select({ count: sql`count(*)` }).from(sessions);
+
+    res.json({
+      status: 'OK',
+      driver: isTursoConfigured ? 'turso' : 'sqlite',
+      isProduction,
+      tursoUrlConfigured: isTursoConfigured,
+      tursoTokenConfigured: isTursoTokenConfigured,
+      reachable: true,
+      tablesExist: {
+        users: userCount !== undefined,
+        userPreferences: prefCount !== undefined,
+        sessions: sessionCount !== undefined
+      }
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: 'ERROR',
+      driver: 'unknown',
+      reachable: false,
+      error: err.message
+    });
+  }
+};
+
+app.get('/api/health/db-diag', handleDbDiag);
+app.get('/health/db-diag', handleDbDiag);
 
 // Health Check Endpoint
 app.get('/api/health', (req, res) => {

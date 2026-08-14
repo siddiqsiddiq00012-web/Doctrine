@@ -216,18 +216,21 @@ if (isValidTursoUrl) {
     });
     db = drizzle(client, { schema });
   } catch (err) {
-    console.warn('[Turso Warning] Failed to initialize Turso client, falling back to SQLite:', err.message);
-    const defaultDbPath = isVercel ? '/tmp/doctrine.db' : 'doctrine.db';
+    if (isVercel || process.env.NODE_ENV === 'production') {
+      throw new Error(`[FATAL PRODUCTION DB ERROR] Failed to initialize Turso database client: ${err.message}`);
+    }
+    console.warn('[Turso Warning] Failed to initialize Turso client, falling back to local SQLite:', err.message);
+    const defaultDbPath = 'doctrine.db';
     sqlite = new Database(defaultDbPath);
     sqlite.pragma('foreign_keys = ON');
     initSqliteSchema(sqlite);
     db = drizzle(sqlite, { schema });
   }
 } else {
-  const isVercel = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
-  const dbPath = isVercel
-    ? '/tmp/doctrine.db'
-    : (process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith('libsql') && !process.env.DATABASE_URL.startsWith('http') ? process.env.DATABASE_URL : 'doctrine.db');
+  if (isVercel || process.env.NODE_ENV === 'production') {
+    throw new Error('[FATAL PRODUCTION DB ERROR] Production environment requires valid TURSO_DATABASE_URL and TURSO_AUTH_TOKEN. Ephemeral SQLite fallback is strictly prohibited in production.');
+  }
+  const dbPath = process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith('libsql') && !process.env.DATABASE_URL.startsWith('http') ? process.env.DATABASE_URL : 'doctrine.db';
   sqlite = new Database(dbPath);
   sqlite.pragma('foreign_keys = ON');
   initSqliteSchema(sqlite);
@@ -235,3 +238,4 @@ if (isValidTursoUrl) {
 }
 
 export { db, sqlite };
+
