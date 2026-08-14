@@ -9,6 +9,7 @@ import { TrainingView } from './components/TrainingView';
 import { NutritionCareView } from './components/NutritionCareView';
 import { InventoryView } from './components/InventoryView';
 import { DataEngineeringView } from './components/DataEngineeringView';
+import { SkincareView } from './components/SkincareView';
 import { SettingsView } from './components/SettingsView';
 import { LoginView } from './components/LoginView';
 import { Navbar } from './components/Navbar';
@@ -42,6 +43,7 @@ const MainContent = () => {
     switch (activeTab) {
       case 'home': return <HomeView />;
       case 'today': return <TodayView />;
+      case 'skincare': return <SkincareView />;
       case 'history': return <HistoryView />;
       case 'week': return <WeekView />;
       case 'profile': return <ProfileView />;

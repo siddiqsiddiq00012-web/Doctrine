@@ -15,6 +15,7 @@ import weeklyRoutes from './routes/weekly.js';
 import deRoutes from './routes/dataEngineering.js';
 import resourcesRoutes from './routes/resources.js';
 import dashboardRoutes from './routes/dashboard.js';
+import skincareRoutes from './routes/skincare.js';
 import { start10pmSummaryScheduler } from './jobs/summaryScheduler.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -88,6 +89,7 @@ app.use('/api/weekly', weeklyRoutes);
 app.use('/api/de', deRoutes);
 app.use('/api/resources', resourcesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/skincare', skincareRoutes);
 
 // Health Check Endpoint
 app.get('/api/health', (req, res) => {

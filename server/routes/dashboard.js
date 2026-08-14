@@ -106,6 +106,13 @@ router.get(['/', ''], requireAuth, async (req, res) => {
       recentHistory: {
         status: 'ok',
         days: []
+      },
+      skincare: {
+        status: 'ok',
+        morningCompleted: false,
+        eveningCompleted: false,
+        completedCount: 0,
+        totalCount: 0
       }
     };
 
@@ -315,6 +322,47 @@ router.get(['/', ''], requireAuth, async (req, res) => {
     } catch (err) {
       console.error('[Dashboard] History stream query failed:', err);
       result.recentHistory = { status: 'error', errorMessage: 'Unable to load recent history' };
+    }
+
+    // 7.5. SKINCARE & GROOMING TODAY STATUS
+    try {
+      const skincareBlocks = (dayDoctrine.timeBlocks || []).filter(b => b.category === 'SKINCARE' || b.category === 'HAIR');
+      let mComp = 0, mTotal = 0, eComp = 0, eTotal = 0;
+
+      const [exec] = await db
+        .select()
+        .from(dailyExecutions)
+        .where(and(eq(dailyExecutions.userId, userId), eq(dailyExecutions.date, todayDate)))
+        .limit(1);
+
+      let dbTaskMap = new Map();
+      if (exec) {
+        const tasks = await db.select().from(taskExecutions).where(eq(taskExecutions.dailyExecutionId, exec.id));
+        dbTaskMap = new Map(tasks.map(t => [t.taskKey, t]));
+      }
+
+      skincareBlocks.forEach(b => {
+        const dbTask = dbTaskMap.get(b.id);
+        const isDone = dbTask ? dbTask.status === 'COMPLETED' : false;
+        if (b.startMinutes < 720) {
+          mTotal++;
+          if (isDone) mComp++;
+        } else {
+          eTotal++;
+          if (isDone) eComp++;
+        }
+      });
+
+      result.skincare = {
+        status: 'ok',
+        morningCompleted: mTotal > 0 && mComp === mTotal,
+        eveningCompleted: eTotal > 0 && eComp === eTotal,
+        completedCount: mComp + eComp,
+        totalCount: mTotal + eTotal
+      };
+    } catch (err) {
+      console.error('[Dashboard] Skincare status query failed:', err);
+      result.skincare = { status: 'error', errorMessage: 'Unable to load skincare status' };
     }
 
     // 8. DYNAMIC PRIMARY ACTION DECISION LOGIC (Doctrine Priority Order)

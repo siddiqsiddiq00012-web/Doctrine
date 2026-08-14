@@ -104,6 +104,7 @@ export const HomeView = () => {
   const weeklyProgress = dashboardData?.weeklyProgress || { status: 'ok', recordedDaysCount: 0, weeklyAveragePct: 0, days: [] };
   const weeklyReview = dashboardData?.weeklyReview || { status: 'ok', isSunday: false, isCompleted: false };
   const recentHistory = dashboardData?.recentHistory || { status: 'ok', days: [] };
+  const skincare = dashboardData?.skincare || { status: 'ok', morningCompleted: false, eveningCompleted: false, completedCount: 0, totalCount: 0 };
 
   return (
     <div className="home-view" style={{ maxWidth: '840px', margin: '0 auto', paddingBottom: '40px' }}>
@@ -247,6 +248,52 @@ export const HomeView = () => {
 
                 <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('dataeng')}>
                   Open DE Tracker
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* SKINCARE & GROOMING COMMAND CARD */}
+        <div className="card" style={{ marginBottom: 0, padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Sparkles size={16} color="var(--accent-purple)" /> Skincare & Grooming
+            </span>
+            <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('skincare')} style={{ fontSize: '12px', color: 'var(--accent-blue)' }}>
+              Routine →
+            </button>
+          </div>
+
+          {skincare.status === 'error' ? (
+            <div style={{ padding: '16px 0', color: '#EF4444', fontSize: '13px' }}>
+              ⚠️ Unable to load skincare status
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                <div style={{ flex: 1, padding: '10px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-color)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Morning</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: skincare.morningCompleted ? 'var(--accent-green)' : 'var(--text-secondary)', marginTop: '2px' }}>
+                    {skincare.morningCompleted ? '✓ Done' : 'Pending'}
+                  </div>
+                </div>
+
+                <div style={{ flex: 1, padding: '10px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-color)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Evening</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: skincare.eveningCompleted ? 'var(--accent-green)' : 'var(--text-secondary)', marginTop: '2px' }}>
+                    {skincare.eveningCompleted ? '✓ Done' : 'Pending'}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  Completed: <strong>{skincare.completedCount} of {skincare.totalCount} tasks</strong>
+                </span>
+
+                <button className="btn btn-secondary btn-sm" onClick={() => setActiveTab('skincare')}>
+                  Open Routine
                 </button>
               </div>
             </div>
