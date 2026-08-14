@@ -73,7 +73,7 @@ router.get('/preferences', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/user/avatar — High Reliability Avatar Upload to Disk
+// POST /api/user/avatar — High Reliability Avatar Upload to Disk or DB
 router.post('/avatar', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -92,40 +92,44 @@ router.post('/avatar', requireAuth, async (req, res) => {
       });
     }
 
-    const mimeType = matches[1].toLowerCase();
-    const base64Data = matches[3];
-    const buffer = Buffer.from(base64Data, 'base64');
-
-    // Enforce 5MB size limit
-    const MAX_SIZE_BYTES = 5 * 1024 * 1024;
-    if (buffer.length > MAX_SIZE_BYTES) {
-      return res.status(400).json({
-        error: 'File Too Large',
-        message: 'Image size exceeds 5MB limit.'
-      });
-    }
-
-    // Determine extension
-    let ext = 'jpg';
-    if (mimeType.includes('png')) ext = 'png';
-    else if (mimeType.includes('webp')) ext = 'webp';
-
-    let relativeUrl = null;
-    try {
-      if (!fs.existsSync(uploadsAvatarsDir)) {
-        fs.mkdirSync(uploadsAvatarsDir, { recursive: true });
-      }
-      deleteUserAvatarFiles(userId);
-      const filename = `avatar_${userId}_${Date.now()}.${ext}`;
-      const filePath = path.join(uploadsAvatarsDir, filename);
-      fs.writeFileSync(filePath, buffer);
-      relativeUrl = `/uploads/avatars/${filename}`;
-    } catch (diskErr) {
-      console.warn('[Avatar Storage] Disk write disallowed, storing Data URI directly in DB:', diskErr.message);
-      relativeUrl = avatarData;
-    }
-
     const nowIso = new Date().toISOString();
+    const isVercel = Boolean(process.env.VERCEL || process.env.VERCEL_ENV || process.env.NODE_ENV === 'production');
+
+    let avatarUrlToSave = avatarData;
+
+    // Try disk write only in local non-serverless development environment
+    if (!isVercel) {
+      try {
+        const mimeType = matches[1].toLowerCase();
+        const base64Data = matches[3];
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        // Enforce 5MB size limit on buffer
+        const MAX_SIZE_BYTES = 5 * 1024 * 1024;
+        if (buffer.length > MAX_SIZE_BYTES) {
+          return res.status(400).json({
+            error: 'File Too Large',
+            message: 'Image size exceeds 5MB limit.'
+          });
+        }
+
+        let ext = 'jpg';
+        if (mimeType.includes('png')) ext = 'png';
+        else if (mimeType.includes('webp')) ext = 'webp';
+
+        if (!fs.existsSync(uploadsAvatarsDir)) {
+          fs.mkdirSync(uploadsAvatarsDir, { recursive: true });
+        }
+        deleteUserAvatarFiles(userId);
+        const filename = `avatar_${userId}_${Date.now()}.${ext}`;
+        const filePath = path.join(uploadsAvatarsDir, filename);
+        fs.writeFileSync(filePath, buffer);
+        avatarUrlToSave = `/uploads/avatars/${filename}`;
+      } catch (diskErr) {
+        console.warn('[Avatar Storage] Disk write disallowed, storing Data URI directly in DB:', diskErr.message);
+        avatarUrlToSave = avatarData;
+      }
+    }
 
     // Update database record with avatar URL / Data URI
     const [existing] = await db
@@ -137,14 +141,14 @@ router.post('/avatar', requireAuth, async (req, res) => {
     if (existing) {
       await db
         .update(userPreferences)
-        .set({ customAvatarUrl: relativeUrl, updatedAt: nowIso })
+        .set({ customAvatarUrl: avatarUrlToSave, updatedAt: nowIso })
         .where(eq(userPreferences.userId, userId));
     } else {
       await db.insert(userPreferences).values({
         userId,
         customDisplayName: req.user.displayName,
         bio: '',
-        customAvatarUrl: relativeUrl,
+        customAvatarUrl: avatarUrlToSave,
         theme: 'light',
         timeFormat: '12h',
         weekStart: 'MONDAY',
@@ -153,8 +157,14 @@ router.post('/avatar', requireAuth, async (req, res) => {
       });
     }
 
-    console.log(`[Avatar Storage] Saved avatar for user ${userId} -> ${relativeUrl}`);
-    res.json({ success: true, customAvatarUrl: relativeUrl });
+    const [updated] = await db
+      .select()
+      .from(userPreferences)
+      .where(eq(userPreferences.userId, userId))
+      .limit(1);
+
+    console.log(`[Avatar Storage] Saved avatar for user ${userId}`);
+    res.json({ success: true, customAvatarUrl: updated ? updated.customAvatarUrl : avatarUrlToSave });
   } catch (error) {
     console.error('[Avatar API Error]:', error);
     res.status(500).json({ error: 'Failed to process avatar upload', details: error.message });
@@ -224,9 +234,9 @@ const handleUpdatePreferences = async (req, res) => {
     } else {
       await db.insert(userPreferences).values({
         userId,
-        customDisplayName: updatePayload.customDisplayName || req.user.displayName,
-        bio: updatePayload.bio || '',
-        customAvatarUrl: updatePayload.customAvatarUrl || null,
+        customDisplayName: updatePayload.customDisplayName !== undefined ? updatePayload.customDisplayName : req.user.displayName,
+        bio: updatePayload.bio !== undefined ? updatePayload.bio : '',
+        customAvatarUrl: updatePayload.customAvatarUrl !== undefined ? updatePayload.customAvatarUrl : null,
         theme: updatePayload.theme || 'light',
         timeFormat: updatePayload.timeFormat || '12h',
         weekStart: updatePayload.weekStart || 'MONDAY',
@@ -247,7 +257,7 @@ const handleUpdatePreferences = async (req, res) => {
         userId: updated.userId,
         customDisplayName: updated.customDisplayName || req.user.displayName,
         bio: updated.bio || '',
-        customAvatarUrl: updated.customAvatarUrl || null,
+        customAvatarUrl: (updated.customAvatarUrl !== undefined) ? updated.customAvatarUrl : null,
         theme: updated.theme || 'light',
         timeFormat: updated.timeFormat || '12h',
         weekStart: updated.weekStart || 'MONDAY',

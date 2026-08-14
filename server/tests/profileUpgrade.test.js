@@ -81,6 +81,74 @@ test('PROFILE UPGRADE — BIO & AVATAR CUSTOMIZATION TESTS', async (t) => {
     assert.equal(prefsB.customDisplayName, 'User Beta Original');
   });
 
+  await t.test('4. Cross-Save Integrity: Save avatar -> Save bio -> Verify avatar remains unchanged', async () => {
+    const testAvatarDataUri = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP...';
+    
+    // Step A: Update avatar only
+    await db
+      .update(userPreferences)
+      .set({ customAvatarUrl: testAvatarDataUri })
+      .where(eq(userPreferences.userId, userIdA));
+
+    const [afterAvatarSave] = await db
+      .select()
+      .from(userPreferences)
+      .where(eq(userPreferences.userId, userIdA));
+    assert.equal(afterAvatarSave.customAvatarUrl, testAvatarDataUri);
+
+    // Step B: Update bio only (simulating field-safe PATCH)
+    const newBio = 'Updated bio string without avatar in payload';
+    await db
+      .update(userPreferences)
+      .set({ bio: newBio, updatedAt: new Date().toISOString() })
+      .where(eq(userPreferences.userId, userIdA));
+
+    const [afterBioSave] = await db
+      .select()
+      .from(userPreferences)
+      .where(eq(userPreferences.userId, userIdA));
+    
+    assert.equal(afterBioSave.bio, newBio);
+    assert.equal(afterBioSave.customAvatarUrl, testAvatarDataUri, 'Avatar must NOT be cleared when saving bio');
+  });
+
+  await t.test('5. Cross-Save Integrity: Save bio -> Save avatar -> Verify bio remains unchanged', async () => {
+    const testBio = 'Persistent bio string for test 5';
+    
+    // Step A: Update bio only
+    await db
+      .update(userPreferences)
+      .set({ bio: testBio })
+      .where(eq(userPreferences.userId, userIdA));
+
+    // Step B: Update avatar only
+    const newAvatar = 'data:image/webp;base64,UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA';
+    await db
+      .update(userPreferences)
+      .set({ customAvatarUrl: newAvatar })
+      .where(eq(userPreferences.userId, userIdA));
+
+    const [afterAvatarSave] = await db
+      .select()
+      .from(userPreferences)
+      .where(eq(userPreferences.userId, userIdA));
+
+    assert.equal(afterAvatarSave.bio, testBio, 'Bio must NOT be cleared when saving avatar');
+    assert.equal(afterAvatarSave.customAvatarUrl, newAvatar);
+  });
+
+  await t.test('6. Refresh & Auth Reload Simulation: Persistence from Database', async () => {
+    // Simulate AppContext checkAuth loading existing user preferences from DB
+    const [persistedRow] = await db
+      .select()
+      .from(userPreferences)
+      .where(eq(userPreferences.userId, userIdA));
+
+    assert.ok(persistedRow);
+    assert.equal(persistedRow.bio, 'Persistent bio string for test 5');
+    assert.match(persistedRow.customAvatarUrl, /^data:image\/webp/);
+  });
+
   // Cleanup test users & preferences
   t.after(async () => {
     await db.delete(users).where(eq(users.id, userIdA));

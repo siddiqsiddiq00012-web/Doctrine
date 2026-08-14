@@ -163,7 +163,7 @@ export const AppProvider = ({ children }) => {
         setUserPreferences(prev => ({
           ...prev,
           ...data,
-          customAvatarUrl: (data.customAvatarUrl !== null && data.customAvatarUrl !== undefined) ? data.customAvatarUrl : prev.customAvatarUrl,
+          customAvatarUrl: (data.customAvatarUrl !== undefined) ? data.customAvatarUrl : prev.customAvatarUrl,
           timeFormat: '12h' // Ensure standardized 12h AM/PM
         }));
       }
@@ -183,13 +183,15 @@ export const AppProvider = ({ children }) => {
       });
       if (res.ok) {
         const data = await safeJsonParse(res);
-        setUserPreferences(prev => ({
-          ...prev,
-          ...data.preferences,
-          timeFormat: '12h',
-          reducedMotion: newPrefs.reducedMotion !== undefined ? newPrefs.reducedMotion : prev.reducedMotion
-        }));
-        return { success: true };
+        if (data.preferences) {
+          setUserPreferences(prev => ({
+            ...prev,
+            ...data.preferences,
+            timeFormat: '12h',
+            reducedMotion: newPrefs.reducedMotion !== undefined ? newPrefs.reducedMotion : prev.reducedMotion
+          }));
+        }
+        return { success: true, preferences: data.preferences };
       } else {
         const errData = await safeJsonParse(res);
         return { success: false, error: errData.message || errData.error || 'Save failed' };
@@ -200,7 +202,7 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Upload Custom Avatar File to Server Disk
+  // Upload Custom Avatar File to Server Disk or DB
   const uploadUserAvatar = async (avatarData) => {
     try {
       const res = await fetch('/api/user/avatar', {
@@ -212,7 +214,6 @@ export const AppProvider = ({ children }) => {
       if (res.ok) {
         const data = await safeJsonParse(res);
         setUserPreferences(prev => ({ ...prev, customAvatarUrl: data.customAvatarUrl }));
-        await fetchUserPreferences(); // Verify from DB
         return { success: true, customAvatarUrl: data.customAvatarUrl };
       } else {
         const errData = await safeJsonParse(res);
@@ -233,7 +234,6 @@ export const AppProvider = ({ children }) => {
       });
       if (res.ok) {
         setUserPreferences(prev => ({ ...prev, customAvatarUrl: null }));
-        await fetchUserPreferences(); // Verify from DB
         return { success: true };
       } else {
         const errData = await safeJsonParse(res);
