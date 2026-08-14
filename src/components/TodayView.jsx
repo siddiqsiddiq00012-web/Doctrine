@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { WEEKLY_DOCTRINE, NON_NEGOTIABLE_RULES, ACTIVE_INGREDIENTS, PREPARED_FOR_TOMORROW_TEMPLATES } from '../data/doctrineData';
+import { WEEKLY_DOCTRINE, NON_NEGOTIABLE_RULES, ACTIVE_INGREDIENTS, PREPARED_FOR_TOMORROW_TEMPLATES, SHAKE_RECIPES } from '../data/doctrineData';
 import { DailySummaryView } from './DailySummaryView';
-import { CheckCircle2, Circle, Clock, Flame, ShieldAlert, Sparkles, Moon, Sun, ArrowRight, Check, FileText } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, Flame, ShieldAlert, Sparkles, Moon, Sun, ArrowRight, Check, FileText, Utensils } from 'lucide-react';
 
 
 const ContextSnippet = ({ taskKey, category, activity, dayName }) => {
@@ -366,23 +366,10 @@ export const TodayView = () => {
           <span className="badge badge-warning">Core Directives</span>
         </div>
         <div className="card-subtitle">
-          Rule: Mass Shake + Morning Skincare + Evening Skincare + MED 2,700 kcal mandatory every day.
+          Rule: Mass Shake + Morning Skincare + Evening Skincare mandatory every day.
         </div>
 
         <div className="grid-2">
-          <div
-            className={`check-item ${currentLog.anchors.medKcalReached ? 'completed' : ''}`}
-            onClick={() => toggleAnchor(selectedDate, 'medKcalReached')}
-          >
-            <div className="checkbox-custom">
-              {currentLog.anchors.medKcalReached && <Check size={14} />}
-            </div>
-            <div>
-              <div className="task-text">MED Rule: 2,700 kcal Minimum Reached</div>
-              <div className="task-category">Nutrition Anchor</div>
-            </div>
-          </div>
-
           <div
             className={`check-item ${currentLog.anchors.massShakeTaken ? 'completed' : ''}`}
             onClick={() => toggleAnchor(selectedDate, 'massShakeTaken')}
@@ -550,6 +537,118 @@ export const TodayView = () => {
           onChange={(e) => updateDailyNotes(selectedDate, e.target.value)}
           style={{ width: '100%', marginTop: '8px', fontSize: '13px', lineHeight: '1.5' }}
         />
+      </div>
+
+      {/* FOODS & DRINKS OF THE DAY (INFORMATIONAL NUTRITION REFERENCE) */}
+      <div className="card" style={{ marginBottom: '24px' }}>
+        <div className="card-title">
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Utensils size={18} color="var(--accent-purple)" /> Foods & Drinks of the Day
+          </span>
+          <span className="badge badge-purple">{dayName}</span>
+        </div>
+        <div className="card-subtitle">
+          Planned nutrition schedule for {dayName.charAt(0) + dayName.slice(1).toLowerCase()}. Informational reference only.
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {(() => {
+            const dayDoctrine = WEEKLY_DOCTRINE[dayName] || WEEKLY_DOCTRINE.MONDAY;
+            const items = [];
+            const addedKeywords = new Set();
+            const hasMatch = (str, keyword) => (str || '').toLowerCase().includes(keyword.toLowerCase());
+
+            if (SHAKE_RECIPES) {
+              if (SHAKE_RECIPES.MASS_SHAKE) {
+                items.push({
+                  id: 'recipe-mass-shake',
+                  title: SHAKE_RECIPES.MASS_SHAKE.title,
+                  subtitle: SHAKE_RECIPES.MASS_SHAKE.subtitle,
+                  scheduleLabel: 'Daily'
+                });
+                addedKeywords.add('mass shake');
+              }
+
+              if (SHAKE_RECIPES.CARROT_BEET_GLOW) {
+                const isScheduledToday = dayDoctrine.timeBlocks.some(b => hasMatch(b.activity, 'glow shake')) ||
+                  hasMatch(SHAKE_RECIPES.CARROT_BEET_GLOW.title, dayName.substring(0, 3));
+                if (isScheduledToday) {
+                  items.push({
+                    id: 'recipe-glow-shake',
+                    title: SHAKE_RECIPES.CARROT_BEET_GLOW.title,
+                    subtitle: SHAKE_RECIPES.CARROT_BEET_GLOW.subtitle,
+                    scheduleLabel: 'Mon, Thu, Sat AM'
+                  });
+                  addedKeywords.add('glow shake');
+                  addedKeywords.add('carrot-beet');
+                }
+              }
+
+              if (SHAKE_RECIPES.PAPAYA_REPAIR) {
+                const isScheduledToday = dayDoctrine.timeBlocks.some(b => hasMatch(b.activity, 'papaya')) ||
+                  hasMatch(SHAKE_RECIPES.PAPAYA_REPAIR.title, dayName);
+                if (isScheduledToday) {
+                  items.push({
+                    id: 'recipe-papaya-repair',
+                    title: SHAKE_RECIPES.PAPAYA_REPAIR.title,
+                    subtitle: SHAKE_RECIPES.PAPAYA_REPAIR.subtitle,
+                    scheduleLabel: 'Every Tuesday'
+                  });
+                  addedKeywords.add('papaya');
+                }
+              }
+            }
+
+            dayDoctrine.timeBlocks.forEach((block) => {
+              const actLower = (block.activity || '').toLowerCase();
+              let isDuplicate = false;
+              addedKeywords.forEach(k => {
+                if (actLower.includes(k)) isDuplicate = true;
+              });
+
+              if (isDuplicate) return;
+
+              if (block.category === 'NUTRITION' || actLower.includes('kanji') || actLower.includes('curd') || actLower.includes('flaxseed')) {
+                items.push({
+                  id: block.id,
+                  title: block.activity,
+                  subtitle: `Scheduled at ${block.time}`,
+                  scheduleLabel: dayName
+                });
+              }
+            });
+
+            return items.map((food) => (
+              <div
+                key={food.id}
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  background: 'var(--bg-app)',
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    {food.title}
+                  </div>
+                  {food.subtitle && (
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                      {food.subtitle}
+                    </div>
+                  )}
+                </div>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap' }}>
+                  {food.scheduleLabel}
+                </div>
+              </div>
+            ));
+          })()}
+        </div>
       </div>
 
       {/* 10:00 PM DAILY AI SUMMARY */}
