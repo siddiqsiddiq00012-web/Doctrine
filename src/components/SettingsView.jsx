@@ -66,7 +66,7 @@ export const SettingsView = () => {
   };
 
   return (
-    <div style={{ maxWidth: '560px', margin: '0 auto', padding: '24px 16px 40px' }}>
+    <div className="settings-view workspace-readable" style={{ padding: '24px 16px 40px' }}>
       
       {/* 1. HEADER */}
       <div style={{ marginBottom: '28px' }}>

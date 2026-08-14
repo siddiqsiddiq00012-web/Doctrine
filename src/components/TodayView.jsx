@@ -232,7 +232,7 @@ export const TodayView = () => {
   });
 
   return (
-    <div className="today-view">
+    <div className="today-view workspace-medium" style={{ paddingBottom: '40px' }}>
       {/* Date Header & Selector */}
       <div className="card" style={{ padding: '16px 20px', marginBottom: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

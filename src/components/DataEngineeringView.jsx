@@ -245,7 +245,7 @@ export const DataEngineeringView = () => {
   });
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+    <div className="data-engineering-view workspace-fluid" style={{ paddingBottom: '40px' }}>
       
       {/* Header Banner */}
       <div className="card" style={{ padding: '20px', marginBottom: '20px' }}>

@@ -79,9 +79,70 @@ body {
 }
 
 .app-container {
-  max-width: 960px;
+  width: min(100% - 32px, 1720px);
   margin: 0 auto;
-  padding: 16px 16px 40px 16px;
+  padding: 16px 24px 40px 24px;
+}
+
+@media (max-width: 639px) {
+  .app-container {
+    width: 100%;
+    padding: 12px 12px 32px 12px;
+  }
+}
+
+/* Workspace Content Wrapper Classes */
+.workspace-fluid {
+  width: 100%;
+  max-width: 1680px;
+  margin: 0 auto;
+}
+
+.workspace-medium {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.workspace-readable {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.text-readable {
+  max-width: 65ch;
+}
+
+/* Content-Driven Asymmetric Layout Grids */
+.grid-asymmetric-main-sub {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+.grid-asymmetric-equal {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+.grid-asymmetric-sub-main {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+@media (min-width: 1024px) {
+  .grid-asymmetric-main-sub {
+    grid-template-columns: 1.3fr 0.7fr;
+  }
+  .grid-asymmetric-equal {
+    grid-template-columns: 1fr 1fr;
+  }
+  .grid-asymmetric-sub-main {
+    grid-template-columns: 0.75fr 1.25fr;
+  }
 }
 
 /* Header & Top Bar */

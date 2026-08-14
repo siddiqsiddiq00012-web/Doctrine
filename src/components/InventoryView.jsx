@@ -161,7 +161,7 @@ export const InventoryView = () => {
   };
 
   return (
-    <div className="inventory-view" style={{ maxWidth: '840px', margin: '0 auto', paddingBottom: '40px' }}>
+    <div className="inventory-view workspace-fluid" style={{ paddingBottom: '40px' }}>
       
       {/* DOCTRINE IMMUTABILITY BANNER */}
       <div style={{

@@ -127,7 +127,7 @@ export const HomeView = () => {
   const skincare = dashboardData?.skincare || { status: 'ok', morningCompleted: false, eveningCompleted: false, completedCount: 0, totalCount: 0 };
 
   return (
-    <div className="home-view" style={{ maxWidth: '840px', margin: '0 auto', paddingBottom: '40px' }}>
+    <div className="home-view workspace-fluid" style={{ paddingBottom: '40px' }}>
       
       {/* COMMAND CENTER HERO BANNER */}
       <div className="hero-banner">

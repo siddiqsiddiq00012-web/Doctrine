@@ -107,7 +107,7 @@ export const HistoryView = () => {
   };
 
   return (
-    <div className="history-view" style={{ maxWidth: '840px', margin: '0 auto', paddingBottom: '40px' }}>
+    <div className="history-view workspace-fluid" style={{ paddingBottom: '40px' }}>
       {/* BRAND & HEADER BAR */}
       <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>

@@ -20,7 +20,7 @@ export const NutritionCareView = () => {
   ];
 
   return (
-    <div className="nutrition-care-view">
+    <div className="nutrition-care-view workspace-medium" style={{ paddingBottom: '40px' }}>
       {/* NUTRITION & MED CARD */}
       <div className="card">
         <div className="card-title">

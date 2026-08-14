@@ -181,9 +181,7 @@ export const ProfileView = () => {
   // ----------------------------------------------------
   if (!isEditing) {
     return (
-      <div style={{
-        maxWidth: '520px',
-        margin: '0 auto',
+      <div className="profile-view workspace-readable" style={{
         padding: '36px 16px 24px',
         display: 'flex',
         flexDirection: 'column',
