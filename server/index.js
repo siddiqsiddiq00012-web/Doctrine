@@ -148,6 +148,14 @@ app.all('/api/jobs/summary-cron', async (req, res) => {
   }
 });
 
+// URL Normalizer middleware for serverless catch-all compatibility
+app.use((req, res, next) => {
+  if (isVercel && !req.url.startsWith('/api') && !req.url.startsWith('/uploads')) {
+    req.url = '/api' + req.url;
+  }
+  next();
+});
+
 // Mount API Endpoints
 app.use('/api/auth', authRoutes);
 app.use('/api/history', historyRoutes);
