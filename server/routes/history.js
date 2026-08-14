@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { db } from '../db/index.js';
-import { dailyExecutions, taskExecutions, doctrineVersions, dailySummaries, deLearningSessions } from '../db/schema.js';
+import { dailyExecutions, taskExecutions, doctrineVersions, dailySummaries, deLearningSessions, taskFailureReasons } from '../db/schema.js';
 import { eq, and, desc } from 'drizzle-orm';
 import { cryptoNative } from '../utils/crypto.js';
 import { WEEKLY_DOCTRINE, PREPARED_FOR_TOMORROW_TEMPLATES } from '../../src/data/doctrineData.js';
 import { getTaskContext } from '../utils/contextualReasoning.js';
+import { calculateFailurePatterns, VALID_FAILURE_REASONS } from '../services/failurePatternService.js';
 
 const router = Router();
 
@@ -36,8 +37,15 @@ async function getOrCreateDailyExecution(userId, dateStr) {
     const missedCount = tasks.filter((t) => t.status === 'MISSED').length;
     const completionPercentage = totalTasksCount > 0 ? Math.round((completedCount / totalTasksCount) * 100) : 0;
 
+    const failureReasons = await db
+      .select()
+      .from(taskFailureReasons)
+      .where(and(eq(taskFailureReasons.userId, userId), eq(taskFailureReasons.date, dateStr)));
+    const failureMap = new Map(failureReasons.map(fr => [fr.taskKey, fr]));
+
     const contextualTasks = tasks.map((t) => ({
       ...t,
+      failureReason: failureMap.get(t.taskKey) || null,
       context: getTaskContext(t.taskKey, t.category, t.taskName, existing.dayOfWeek || 'MONDAY')
     }));
 
@@ -390,6 +398,140 @@ router.post('/:date/update', requireAuth, async (req, res) => {
   } catch (error) {
     console.error(`Error updating daily execution for date ${date}:`, error);
     res.status(500).json({ error: 'Failed to update daily execution' });
+  }
+});
+
+// POST /api/history/failure-reason — Record or Update Task Failure Reason (Feature 14)
+router.post('/failure-reason', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { date, taskKey, taskName, category, status, reason, userNote } = req.body || {};
+
+    if (!date || !taskKey || !reason) {
+      return res.status(400).json({ error: 'Missing required fields (date, taskKey, reason)' });
+    }
+
+    if (!VALID_FAILURE_REASONS.includes(reason)) {
+      return res.status(400).json({ error: 'Invalid failure reason category', validReasons: VALID_FAILURE_REASONS });
+    }
+
+    const { execution, tasks } = await getOrCreateDailyExecution(userId, date);
+    const existingTask = tasks.find(t => t.taskKey === taskKey);
+
+    const nowIso = new Date().toISOString();
+    let taskExecutionId = existingTask ? existingTask.id : null;
+    let nextStatus = status && ['SKIPPED', 'MISSED', 'COMPLETED', 'SCHEDULED'].includes(status)
+      ? status
+      : (existingTask ? (existingTask.status === 'COMPLETED' ? 'SKIPPED' : existingTask.status) : 'SKIPPED');
+
+    if (existingTask) {
+      await db
+        .update(taskExecutions)
+        .set({ status: nextStatus, updatedAt: nowIso })
+        .where(eq(taskExecutions.id, existingTask.id));
+    } else {
+      taskExecutionId = cryptoNative.randomUUID();
+      await db.insert(taskExecutions).values({
+        id: taskExecutionId,
+        dailyExecutionId: execution.id,
+        taskKey,
+        category: category || 'DOCTRINE',
+        taskName: taskName || taskKey,
+        status: nextStatus,
+        createdAt: nowIso,
+        updatedAt: nowIso
+      });
+    }
+
+    // Check if failure reason record exists for (userId, date, taskKey)
+    const [existingFailure] = await db
+      .select()
+      .from(taskFailureReasons)
+      .where(and(eq(taskFailureReasons.userId, userId), eq(taskFailureReasons.date, date), eq(taskFailureReasons.taskKey, taskKey)))
+      .limit(1);
+
+    let failureRecordId = null;
+    if (existingFailure) {
+      failureRecordId = existingFailure.id;
+      await db
+        .update(taskFailureReasons)
+        .set({
+          taskExecutionId: taskExecutionId || existingFailure.taskExecutionId,
+          taskName: taskName || existingFailure.taskName,
+          category: category || existingFailure.category,
+          reason,
+          userNote: userNote !== undefined ? String(userNote) : existingFailure.userNote,
+          updatedAt: nowIso
+        })
+        .where(eq(taskFailureReasons.id, existingFailure.id));
+    } else {
+      failureRecordId = cryptoNative.randomUUID();
+      await db.insert(taskFailureReasons).values({
+        id: failureRecordId,
+        userId,
+        taskExecutionId,
+        date,
+        taskKey,
+        taskName: taskName || taskKey,
+        category: category || 'DOCTRINE',
+        reason,
+        userNote: userNote ? String(userNote) : '',
+        createdAt: nowIso,
+        updatedAt: nowIso
+      });
+    }
+
+    const [savedRecord] = await db
+      .select()
+      .from(taskFailureReasons)
+      .where(eq(taskFailureReasons.id, failureRecordId))
+      .limit(1);
+
+    res.json({
+      success: true,
+      failureRecord: savedRecord
+    });
+  } catch (error) {
+    console.error('[History API] Record failure reason failed:', error);
+    res.status(500).json({ error: 'Failed to record failure reason', details: error.message });
+  }
+});
+
+// GET /api/history/failure-patterns — Fetch Deterministic Failure Patterns & AI Interpretation (Feature 14)
+router.get('/failure-patterns', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const weeksCount = Number(req.query.weeks) || 4;
+
+    const analysis = await calculateFailurePatterns(userId, weeksCount);
+
+    res.json({
+      success: true,
+      analysis
+    });
+  } catch (error) {
+    console.error('[History API] Fetch failure patterns failed:', error);
+    res.status(500).json({ error: 'Failed to calculate failure patterns', details: error.message });
+  }
+});
+
+// GET /api/history/failure-records — Fetch All Historical Failure Logs (Feature 14)
+router.get('/failure-records', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const records = await db
+      .select()
+      .from(taskFailureReasons)
+      .where(eq(taskFailureReasons.userId, userId))
+      .orderBy(desc(taskFailureReasons.date));
+
+    res.json({
+      success: true,
+      records
+    });
+  } catch (error) {
+    console.error('[History API] Fetch failure records failed:', error);
+    res.status(500).json({ error: 'Failed to retrieve failure records', details: error.message });
   }
 });
 

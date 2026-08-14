@@ -4,6 +4,7 @@ import { db } from '../db/index.js';
 import { dailyExecutions, taskExecutions, dailySummaries, weeklyReviews, deLearningSessions, resourceStock } from '../db/schema.js';
 import { eq, and, desc } from 'drizzle-orm';
 import { WEEKLY_DOCTRINE, INITIAL_INVENTORY } from '../../src/data/doctrineData.js';
+import { calculateFailurePatterns } from '../services/failurePatternService.js';
 
 const router = Router();
 
@@ -425,6 +426,14 @@ router.get(['/', ''], requireAuth, async (req, res) => {
         goal: 'Daily Progress Reflection Goal',
         contextReason: "Reviews today's completed milestones and historical compliance."
       };
+    }
+
+    // 9. FAILURE PATTERNS SUMMARY (Feature 14)
+    try {
+      result.failurePattern = await calculateFailurePatterns(userId, 4);
+    } catch (err) {
+      console.error('[Dashboard] Failure patterns query failed:', err);
+      result.failurePattern = null;
     }
 
     res.json({ success: true, ...result });

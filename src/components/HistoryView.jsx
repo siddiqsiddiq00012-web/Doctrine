@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { WEEKLY_DOCTRINE } from '../data/doctrineData';
 import { DailySummaryView } from './DailySummaryView';
-import { Calendar, Clock, CheckCircle2, Circle, XCircle, FileText, Sparkles, Terminal, ArrowLeft, ChevronRight, Award, Flame } from 'lucide-react';
+import { FailurePatternsView } from './FailurePatternsView';
+import { Calendar, Clock, CheckCircle2, Circle, XCircle, FileText, Sparkles, Terminal, ArrowLeft, ChevronRight, Award, Flame, AlertCircle } from 'lucide-react';
 
 export const HistoryView = () => {
   const {
@@ -134,6 +135,13 @@ export const HistoryView = () => {
               style={{ fontSize: '13px', padding: '6px 12px' }}
             >
               Timeline Stream
+            </button>
+            <button
+              className={`btn ${activeSubTab === 'patterns' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setActiveSubTab('patterns')}
+              style={{ fontSize: '13px', padding: '6px 12px' }}
+            >
+              Failure Patterns
             </button>
           </div>
         </div>
@@ -417,6 +425,11 @@ export const HistoryView = () => {
             </div>
           )}
         </div>
+      )}
+
+      {/* SUB-TAB 3: PERSONAL FAILURE PATTERNS LOG */}
+      {activeSubTab === 'patterns' && (
+        <FailurePatternsView />
       )}
     </div>
   );

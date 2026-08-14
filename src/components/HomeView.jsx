@@ -199,6 +199,33 @@ export const HomeView = () => {
         </div>
       )}
 
+      {/* FEATURE 14: EXECUTION BOTTLENECK BANNER */}
+      {dashboardData?.failurePattern?.hasStrongPattern && (
+        <div className="card" style={{
+          padding: '16px 20px',
+          marginBottom: '16px',
+          borderLeft: '4px solid var(--accent-amber)',
+          background: 'var(--bg-app)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent-amber)', textTransform: 'uppercase', letterSpacing: '0.6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <AlertCircle size={14} color="var(--accent-amber)" /> EXECUTION BOTTLENECK DETECTED
+              </div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
+                {dashboardData.failurePattern.patternSummary}
+              </div>
+            </div>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setActiveTab('history')}
+            >
+              View Pattern Log →
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* TWO COLUMN GRID: TODAY'S PRIORITIES + DATA ENGINEERING */}
       <div className="grid-2" style={{ marginBottom: '16px', gap: '16px' }}>
         

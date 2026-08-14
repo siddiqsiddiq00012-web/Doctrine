@@ -224,3 +224,22 @@ export const resourceEvents = sqliteTable('resource_events', {
   userResourceIdx: index('resource_events_user_res_idx').on(table.userId, table.resourceId),
   userDateIdx: index('resource_events_user_date_idx').on(table.userId, table.date),
 }));
+
+// Task Failure Reasons Table (Feature 14: Personal Failure Pattern Log)
+export const taskFailureReasons = sqliteTable('task_failure_reasons', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  taskExecutionId: text('task_execution_id').references(() => taskExecutions.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(), // YYYY-MM-DD
+  taskKey: text('task_key').notNull(),
+  taskName: text('task_name'),
+  category: text('category'),
+  reason: text('reason').notNull(), // 'Lack of time' | 'Forgot' | 'No resources' | 'Too tired' | 'Work/college conflict' | 'Started too late' | 'Screen distraction' | 'Meal preparation failure' | 'Other'
+  userNote: text('user_note').default(''),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userDateIdx: index('task_failure_reasons_user_date_idx').on(table.userId, table.date),
+  userTaskIdx: index('task_failure_reasons_user_task_idx').on(table.userId, table.taskKey),
+}));
+

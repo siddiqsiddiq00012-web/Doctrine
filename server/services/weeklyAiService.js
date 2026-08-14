@@ -3,6 +3,7 @@ import { db } from '../db/index.js';
 import { weeklyReviews, progressPhotos, weeklySummaries, dailyExecutions, taskExecutions, users, userPreferences } from '../db/schema.js';
 import { eq, and, desc, lt } from 'drizzle-orm';
 import { cryptoNative } from '../utils/crypto.js';
+import { calculateFailurePatterns } from './failurePatternService.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -67,6 +68,14 @@ export async function getWeeklyExecutionSnapshot(userId, weekStartDate) {
       : null
   };
 
+  // Fetch failure patterns for the 4-week window
+  let failurePatterns = null;
+  try {
+    failurePatterns = await calculateFailurePatterns(userId, 4);
+  } catch (e) {
+    console.error('Fetch failure patterns error in weekly service:', e);
+  }
+
   return {
     userId,
     displayName,
@@ -75,7 +84,8 @@ export async function getWeeklyExecutionSnapshot(userId, weekStartDate) {
     prevReview: prevReview || null,
     deltas,
     photosCount: photos.length,
-    photosCategories: photos.map(p => p.category)
+    photosCategories: photos.map(p => p.category),
+    failurePatterns
   };
 }
 

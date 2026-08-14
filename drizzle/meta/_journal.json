@@ -57,6 +57,13 @@
       "when": 1786645206075,
       "tag": "0007_round_red_wolf",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1786646500000,
+      "tag": "0008_task_failure_reasons",
+      "breakpoints": true
     }
   ]
 }

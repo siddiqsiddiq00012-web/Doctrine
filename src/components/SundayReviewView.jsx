@@ -56,6 +56,7 @@ export const SundayReviewView = () => {
 
   const [historyList, setHistoryList] = useState([]);
   const [timelineList, setTimelineList] = useState([]);
+  const [failurePatterns, setFailurePatterns] = useState(null);
   const [selectedHistoryWeek, setSelectedHistoryWeek] = useState(null);
 
   // FEATURE 13: PREVIEW BEFORE SAVE STATE (Requirement 11)
@@ -116,6 +117,7 @@ export const SundayReviewView = () => {
         setPrevReview(data.prevReview);
         setDeltas(data.deltas || {});
         setSummaryRecord(data.summaryRecord);
+        setFailurePatterns(data.failurePatterns || null);
 
         // Populate photo map
         const photoMap = { physique: null, face: null, hair: null };
@@ -817,6 +819,30 @@ export const SundayReviewView = () => {
                   onChange={e => setFormState({ ...formState, refinementNotes: e.target.value })}
                 />
               </div>
+
+              {/* FEATURE 14: WEEKLY FAILURE PATTERN SUMMARY */}
+              {failurePatterns && failurePatterns.totalFailures > 0 && (
+                <div style={{
+                  padding: '14px 16px',
+                  borderRadius: '12px',
+                  background: 'var(--bg-app)',
+                  border: '1px solid var(--border-color)',
+                  marginTop: '16px',
+                  fontSize: '12px'
+                }}>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <AlertCircle size={14} color="var(--accent-amber)" /> 4-Week Failure Pattern Summary
+                  </div>
+                  <div style={{ color: 'var(--text-secondary)' }}>
+                    {failurePatterns.patternSummary}
+                  </div>
+                  {failurePatterns.potentialIntervention && (
+                    <div style={{ color: 'var(--accent-blue)', fontWeight: 600, marginTop: '6px' }}>
+                      Suggested Focus: {failurePatterns.potentialIntervention}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
                 <button className="btn btn-secondary" onClick={() => setStep(3)}>
