@@ -11,11 +11,24 @@ const __dirname = path.dirname(__filename);
 // Ensure .env is loaded
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-const dbPath = process.env.DATABASE_URL || 'doctrine.db';
-const sqlite = new Database(dbPath);
+const tursoUrl = process.env.TURSO_DATABASE_URL || (process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith('libsql://') || process.env.DATABASE_URL.startsWith('https://')) ? process.env.DATABASE_URL : null);
 
-// Enable Foreign Key support in SQLite
-sqlite.pragma('foreign_keys = ON');
+let db;
+let sqlite = null;
 
-export const db = drizzle(sqlite, { schema });
-export { sqlite };
+if (tursoUrl) {
+  const { createClient } = await import('@libsql/client');
+  const { drizzle } = await import('drizzle-orm/libsql');
+  const client = createClient({
+    url: tursoUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN
+  });
+  db = drizzle(client, { schema });
+} else {
+  const dbPath = process.env.DATABASE_URL || 'doctrine.db';
+  sqlite = new Database(dbPath);
+  sqlite.pragma('foreign_keys = ON');
+  db = drizzle(sqlite, { schema });
+}
+
+export { db, sqlite };
