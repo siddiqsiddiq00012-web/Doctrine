@@ -42,3 +42,5 @@ lerna-debug.log*
 Thumbs.db
 
 # Environment secrets.env
+.vercel
+.env*

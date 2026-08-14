@@ -132,7 +132,8 @@ router.get('/google/callback', async (req, res) => {
         return res.status(500).json({ error: 'Session save failure' });
       }
       // Redirect back to frontend
-      res.redirect('http://localhost:5173/?login=success');
+      const redirectTarget = process.env.APP_URL ? `${process.env.APP_URL}/?login=success` : '/?login=success';
+      res.redirect(redirectTarget);
     });
 
   } catch (err) {
@@ -241,7 +242,8 @@ const handleDevLogin = async (req, res, isGetRedirect = false) => {
       }
 
       if (isGetRedirect) {
-        return res.redirect('http://localhost:5173/?login=success');
+        const redirectTarget = process.env.APP_URL ? `${process.env.APP_URL}/?login=success` : '/?login=success';
+        return res.redirect(redirectTarget);
       }
 
       res.json({
