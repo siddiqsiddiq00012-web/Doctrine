@@ -30,6 +30,9 @@ export const ProfileView = () => {
   // Distinct Modes: 'view' | 'edit'
   const [isEditing, setIsEditing] = useState(false);
 
+  const DEFAULT_BIO = 'Perhaps a life is measured less by what it gathers than by what it gradually becomes. In the space between what is given and what is chosen, character takes shape.';
+  const DEFAULT_AVATAR = '/profile-picture.jpg';
+
   // Form Editing State
   const [editName, setEditName] = useState('');
   const [editBio, setEditBio] = useState('');
@@ -44,13 +47,13 @@ export const ProfileView = () => {
   useEffect(() => {
     if (userPreferences) {
       const currentName = userPreferences.customDisplayName || user?.displayName || '';
-      const currentBio = userPreferences.bio || '';
-      const currentAvatar = userPreferences.customAvatarUrl || '';
+      const currentBio = userPreferences.bio || DEFAULT_BIO;
+      const currentAvatar = userPreferences.customAvatarUrl || DEFAULT_AVATAR;
       setEditName(currentName);
       setEditBio(currentBio);
       setSelectedImageDataUri(null);
       setRevertToGoogle(false);
-      setImagePreview(currentAvatar || user?.avatarUrl || '');
+      setImagePreview(currentAvatar || user?.avatarUrl || DEFAULT_AVATAR);
     }
   }, [userPreferences, user, isEditing]);
 
@@ -170,7 +173,7 @@ export const ProfileView = () => {
   };
 
   const displayName = userPreferences?.customDisplayName || user?.displayName || 'Doctrine User';
-  const bioText = userPreferences?.bio || '';
+  const bioText = userPreferences?.bio || DEFAULT_BIO;
 
   const joinDateStr = user?.createdAt
     ? new Date(user.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })

@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { DEFAULT_BIO, DEFAULT_AVATAR } from '../services/profileInitService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,7 +37,7 @@ function deleteUserAvatarFiles(userId) {
   }
 }
 
-// GET /api/user/preferences
+// GET /api/user/preferences — PURE READ-ONLY ENDPOINT (NO DB WRITES ON READ)
 router.get('/preferences', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -50,8 +51,8 @@ router.get('/preferences', requireAuth, async (req, res) => {
       return res.json({
         userId,
         customDisplayName: req.user.displayName,
-        bio: '',
-        customAvatarUrl: null,
+        bio: DEFAULT_BIO,
+        customAvatarUrl: DEFAULT_AVATAR,
         theme: 'light',
         timeFormat: '12h',
         weekStart: 'MONDAY',
@@ -61,8 +62,8 @@ router.get('/preferences', requireAuth, async (req, res) => {
     res.json({
       userId: prefs.userId,
       customDisplayName: prefs.customDisplayName || req.user.displayName,
-      bio: prefs.bio || '',
-      customAvatarUrl: prefs.customAvatarUrl || null,
+      bio: (prefs.bio && prefs.bio.trim()) ? prefs.bio : DEFAULT_BIO,
+      customAvatarUrl: (prefs.customAvatarUrl && prefs.customAvatarUrl.trim()) ? prefs.customAvatarUrl : DEFAULT_AVATAR,
       theme: prefs.theme || 'light',
       timeFormat: prefs.timeFormat || '12h',
       weekStart: prefs.weekStart || 'MONDAY',

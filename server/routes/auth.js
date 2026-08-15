@@ -5,6 +5,7 @@ import { users, doctrineVersions } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { cryptoNative } from '../utils/crypto.js';
 import { WEEKLY_DOCTRINE } from '../../src/data/doctrineData.js';
+import { ensureProfileInitialized } from '../services/profileInitService.js';
 
 const router = Router();
 
@@ -122,6 +123,9 @@ router.get('/google/callback', async (req, res) => {
         createdAt: nowIso
       });
     }
+
+    // Idempotent profile initialization during auth callback
+    await ensureProfileInitialized(userId, displayName);
 
     // Create secure application session
     req.session.userId = userId;
@@ -262,6 +266,9 @@ const handleDevLogin = async (req, res, isGetRedirect = false) => {
         createdAt: nowIso
       });
     }
+
+    // Idempotent profile initialization during dev login
+    await ensureProfileInitialized(userId, targetUser ? targetUser.displayName : defaultName);
 
     req.session.userId = userId;
 

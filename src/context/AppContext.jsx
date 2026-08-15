@@ -54,13 +54,16 @@ export const AppProvider = ({ children }) => {
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
 
   // User Preferences & Personal Profile State with LocalStorage persistence to ensure DP never disappears on refresh
+  const DEFAULT_BIO = 'Perhaps a life is measured less by what it gathers than by what it gradually becomes. In the space between what is given and what is chosen, character takes shape.';
+  const DEFAULT_AVATAR = '/profile-picture.jpg';
+
   const [userPreferences, setUserPreferences] = useState(() => {
     try {
       const saved = localStorage.getItem('doctrine_user_preferences');
       return saved ? JSON.parse(saved) : {
         customDisplayName: '',
-        bio: '',
-        customAvatarUrl: null,
+        bio: DEFAULT_BIO,
+        customAvatarUrl: DEFAULT_AVATAR,
         theme: 'light',
         timeFormat: '12h',
         weekStart: 'MONDAY',
@@ -69,8 +72,8 @@ export const AppProvider = ({ children }) => {
     } catch (e) {
       return {
         customDisplayName: '',
-        bio: '',
-        customAvatarUrl: null,
+        bio: DEFAULT_BIO,
+        customAvatarUrl: DEFAULT_AVATAR,
         theme: 'light',
         timeFormat: '12h',
         weekStart: 'MONDAY',
@@ -280,7 +283,7 @@ export const AppProvider = ({ children }) => {
   }, [checkAuth]);
 
   // Active Avatar URL Helper
-  const activeAvatarUrl = userPreferences.customAvatarUrl || user?.avatarUrl || '';
+  const activeAvatarUrl = userPreferences.customAvatarUrl || user?.avatarUrl || '/profile-picture.jpg';
 
   // Apply Theme Attribute to DOM
   useEffect(() => {
