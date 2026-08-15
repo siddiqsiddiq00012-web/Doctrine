@@ -244,3 +244,117 @@ export const taskFailureReasons = sqliteTable('task_failure_reasons', {
   userTaskIdx: index('task_failure_reasons_user_task_idx').on(table.userId, table.taskKey),
 }));
 
+// Financial Transactions / Ledger Table (Actual Financial Events)
+export const financialTransactions = sqliteTable('financial_transactions', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  amountPaise: integer('amount_paise').notNull(), // Amount in integer Paise (₹1.00 = 100 Paise)
+  date: text('date').notNull(), // YYYY-MM-DD
+  type: text('type').notNull(), // 'INCOME' | 'EXPENSE' | 'RESERVE' | 'ALLOCATION'
+  category: text('category').notNull(), // e.g. 'WORKDAY_INCOME', 'RESOURCE_PURCHASE', 'GOAL_SAVING', 'TRANSPORT', 'FEES', 'OTHER'
+  description: text('description').default('').notNull(),
+  source: text('source').default('MANUAL').notNull(), // 'MANUAL' | 'WORKDAY' | 'PURCHASE' | 'GOAL' | 'WEEKLY_REVIEW'
+  financialGoalId: text('financial_goal_id').references(() => financialGoals.id, { onDelete: 'set null' }),
+  cartItemId: text('cart_item_id').references(() => cartItems.id, { onDelete: 'set null' }),
+  purchaseRecordId: text('purchase_record_id').references(() => purchaseRecords.id, { onDelete: 'set null' }),
+  resourceId: text('resource_id'),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userDateIdx: index('financial_transactions_user_date_idx').on(table.userId, table.date),
+  userCategoryIdx: index('financial_transactions_user_cat_idx').on(table.userId, table.category),
+  userGoalIdx: index('financial_transactions_user_goal_idx').on(table.userId, table.financialGoalId),
+}));
+
+// Financial Goals / Wishes Table (Future Financial Expenses & Saving Targets)
+export const financialGoals = sqliteTable('financial_goals', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(), // 'speaker', 'PC table', 'monitor', 'college fees', 'exam fees', etc.
+  targetPricePaise: integer('target_price_paise').notNull(), // Target price in integer Paise
+  priority: integer('priority').default(1).notNull(), // User-controlled ranking: 1 = highest
+  urgency: text('urgency').default('MEDIUM').notNull(), // 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+  deadlineDate: text('deadline_date'), // YYYY-MM-DD (optional)
+  desiredPurchaseDate: text('desired_purchase_date'), // YYYY-MM-DD (optional)
+  allocatedAmountPaise: integer('allocated_amount_paise').default(0).notNull(), // Synchronized allocation cache in integer Paise
+  status: text('status').default('PLANNED').notNull(), // 'PLANNED' | 'SAVING' | 'READY' | 'PURCHASED' | 'CANCELLED'
+  notes: text('notes').default('').notNull(),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userStatusIdx: index('financial_goals_user_status_idx').on(table.userId, table.status),
+  userPriorityIdx: index('financial_goals_user_priority_idx').on(table.userId, table.priority),
+}));
+
+// Cart Items Table (Independent Purchase Intent Cart)
+export const cartItems = sqliteTable('cart_items', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  itemName: text('item_name').notNull(),
+  resourceId: text('resource_id'), // Optional reference to resources (e.g. 'eggs', 'milk')
+  quantity: real('quantity').default(1).notNull(),
+  estimatedPricePaise: integer('estimated_price_paise').notNull(), // Estimated unit price in integer Paise
+  targetPurchaseDate: text('target_purchase_date'), // YYYY-MM-DD (optional)
+  financialGoalId: text('financial_goal_id').references(() => financialGoals.id, { onDelete: 'set null' }),
+  priority: integer('priority').default(1).notNull(),
+  status: text('status').default('PENDING').notNull(), // 'PENDING' | 'APPROVED' | 'PURCHASED' | 'DEFERRED' | 'REJECTED'
+  notes: text('notes').default('').notNull(),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userStatusIdx: index('cart_items_user_status_idx').on(table.userId, table.status),
+  userResourceIdx: index('cart_items_user_resource_idx').on(table.userId, table.resourceId),
+  userGoalIdx: index('cart_items_user_goal_idx').on(table.userId, table.financialGoalId),
+}));
+
+// Purchase Records Table (Historical Authoritative Purchases)
+export const purchaseRecords = sqliteTable('purchase_records', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  cartItemId: text('cart_item_id').references(() => cartItems.id, { onDelete: 'set null' }),
+  financialTransactionId: text('financial_transaction_id').references(() => financialTransactions.id, { onDelete: 'set null' }),
+  resourceId: text('resource_id'), // Optional reference to resources
+  itemName: text('item_name').notNull(),
+  quantity: real('quantity').notNull(),
+  actualPricePaise: integer('actual_price_paise').notNull(), // Authoritative historical purchase price in integer Paise
+  purchaseDate: text('purchase_date').notNull(), // YYYY-MM-DD
+  notes: text('notes').default('').notNull(),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userPurchaseDateIdx: index('purchase_records_user_date_idx').on(table.userId, table.purchaseDate),
+  userResourceIdx: index('purchase_records_user_resource_idx').on(table.userId, table.resourceId),
+}));
+
+// Financial Decisions Table (AI/System Recommendation & User Choice History)
+export const financialDecisions = sqliteTable('financial_decisions', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  recommendationType: text('recommendation_type').notNull(), // 'CART_APPROVAL' | 'GOAL_ALLOCATION' | 'PURCHASE_DEFERRAL' | 'BUDGET_RESERVE'
+  payload: text('payload').notNull(), // Structured JSON metadata string
+  date: text('date').notNull(), // YYYY-MM-DD
+  userDecision: text('user_decision').default('PENDING').notNull(), // 'ACCEPTED' | 'REJECTED' | 'DEFERRED' | 'MODIFIED' | 'PENDING'
+  cartItemId: text('cart_item_id').references(() => cartItems.id, { onDelete: 'set null' }),
+  financialGoalId: text('financial_goal_id').references(() => financialGoals.id, { onDelete: 'set null' }),
+  purchaseRecordId: text('purchase_record_id').references(() => purchaseRecords.id, { onDelete: 'set null' }),
+  outcome: text('outcome').default('').notNull(),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userDecisionDateIdx: index('financial_decisions_user_date_idx').on(table.userId, table.date),
+  userDecisionIdx: index('financial_decisions_user_decision_idx').on(table.userId, table.userDecision),
+}));
+
+// Financial Preferences Table (Configurable User Financial Rules)
+export const financialPreferences = sqliteTable('financial_preferences', {
+  userId: text('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  dailyWorkdayIncomePaise: integer('daily_workday_income_paise').default(22000).notNull(), // ₹220.00
+  transportDailyCostPaise: integer('transport_daily_cost_paise').default(5000).notNull(), // ₹50.00
+  transportReserveDay: text('transport_reserve_day').default('THURSDAY').notNull(),
+  transportReserveAmountPaise: integer('transport_reserve_amount_paise').default(10000).notNull(), // ₹100.00
+  workdaysJson: text('workdays_json').default('["MONDAY","TUESDAY","WEDNESDAY","THURSDAY"]').notNull(),
+  weeklyBudgetLimitPaise: integer('weekly_budget_limit_paise').default(0).notNull(),
+  autoApproveThresholdPaise: integer('auto_approve_threshold_paise').default(0).notNull(),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+});
+

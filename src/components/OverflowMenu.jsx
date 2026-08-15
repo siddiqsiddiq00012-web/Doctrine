@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { MoreVertical, Sparkles, Dumbbell, Package, Clock, Settings } from 'lucide-react';
+import { MoreVertical, Sparkles, Dumbbell, Package, Clock, Settings, Wallet, ShoppingBag } from 'lucide-react';
 
 export const OverflowMenu = () => {
   const { activeTab, setActiveTab } = useApp();
@@ -8,6 +8,8 @@ export const OverflowMenu = () => {
   const menuRef = useRef(null);
 
   const secondaryItems = [
+    { id: 'budget', label: 'Budget', icon: Wallet },
+    { id: 'cart', label: 'Cart', icon: ShoppingBag },
     { id: 'skincare', label: 'Skincare & Grooming', icon: Sparkles },
     { id: 'training', label: 'Training', icon: Dumbbell },
     { id: 'inventory', label: 'Resources', icon: Package },

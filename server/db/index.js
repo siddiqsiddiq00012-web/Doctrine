@@ -245,10 +245,171 @@ function initSqliteSchema(sqliteDb) {
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE IF NOT EXISTS financial_transactions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        amount_paise INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        type TEXT NOT NULL,
+        category TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        source TEXT NOT NULL DEFAULT 'MANUAL',
+        financial_goal_id TEXT REFERENCES financial_goals(id) ON DELETE SET NULL,
+        cart_item_id TEXT REFERENCES cart_items(id) ON DELETE SET NULL,
+        purchase_record_id TEXT REFERENCES purchase_records(id) ON DELETE SET NULL,
+        resource_id TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS financial_goals (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        target_price_paise INTEGER NOT NULL,
+        priority INTEGER NOT NULL DEFAULT 1,
+        urgency TEXT NOT NULL DEFAULT 'MEDIUM',
+        deadline_date TEXT,
+        desired_purchase_date TEXT,
+        allocated_amount_paise INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'PLANNED',
+        notes TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS cart_items (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        item_name TEXT NOT NULL,
+        resource_id TEXT,
+        quantity REAL NOT NULL DEFAULT 1,
+        estimated_price_paise INTEGER NOT NULL,
+        target_purchase_date TEXT,
+        financial_goal_id TEXT REFERENCES financial_goals(id) ON DELETE SET NULL,
+        priority INTEGER NOT NULL DEFAULT 1,
+        status TEXT NOT NULL DEFAULT 'PENDING',
+        notes TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS purchase_records (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        cart_item_id TEXT REFERENCES cart_items(id) ON DELETE SET NULL,
+        financial_transaction_id TEXT REFERENCES financial_transactions(id) ON DELETE SET NULL,
+        resource_id TEXT,
+        item_name TEXT NOT NULL,
+        quantity REAL NOT NULL,
+        actual_price_paise INTEGER NOT NULL,
+        purchase_date TEXT NOT NULL,
+        notes TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS financial_decisions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        recommendation_type TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        date TEXT NOT NULL,
+        user_decision TEXT NOT NULL DEFAULT 'PENDING',
+        cart_item_id TEXT REFERENCES cart_items(id) ON DELETE SET NULL,
+        financial_goal_id TEXT REFERENCES financial_goals(id) ON DELETE SET NULL,
+        purchase_record_id TEXT REFERENCES purchase_records(id) ON DELETE SET NULL,
+        outcome TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS financial_preferences (
+        user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        daily_workday_income_paise INTEGER NOT NULL DEFAULT 22000,
+        transport_daily_cost_paise INTEGER NOT NULL DEFAULT 5000,
+        transport_reserve_day TEXT NOT NULL DEFAULT 'THURSDAY',
+        transport_reserve_amount_paise INTEGER NOT NULL DEFAULT 10000,
+        workdays_json TEXT NOT NULL DEFAULT '["MONDAY","TUESDAY","WEDNESDAY","THURSDAY"]',
+        weekly_budget_limit_paise INTEGER NOT NULL DEFAULT 0,
+        auto_approve_threshold_paise INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
     `);
     try { sqliteDb.exec('ALTER TABLE sessions ADD COLUMN sess TEXT;'); } catch (e) {}
+
+    // Data-preserving migration helper for Task 1 REAL -> Task 2/3/4 INTEGER paise columns
+    const migrateMoneyCol = (table, oldCol, newCol, defaultVal = 0) => {
+      const tableCheck = sqliteDb.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table);
+      if (!tableCheck) return;
+
+      let cols = [];
+      try {
+        cols = sqliteDb.pragma(`table_info(${table})`);
+      } catch (e) {
+        console.error(`[SQLite Migration Error] Failed inspecting table info for ${table}:`, e.message);
+        throw e;
+      }
+
+      const hasOld = cols.some(c => c.name === oldCol);
+      const hasNew = cols.some(c => c.name === newCol);
+
+      if (!hasNew) {
+        try {
+          sqliteDb.exec(`ALTER TABLE ${table} ADD COLUMN ${newCol} INTEGER NOT NULL DEFAULT ${defaultVal};`);
+        } catch (e) {
+          console.error(`[SQLite Migration Error] Failed adding column ${newCol} to table ${table}:`, e.message);
+          throw e;
+        }
+      }
+
+      if (hasOld) {
+        try {
+          // Deterministic conversion from old REAL Rupees to integer Paise (multiplied by 100 with rounding)
+          sqliteDb.exec(`
+            UPDATE ${table}
+            SET ${newCol} = CAST(ROUND((${oldCol} + 0.0000001) * 100) AS INTEGER)
+            WHERE (${newCol} IS NULL OR ${newCol} = 0) AND ${oldCol} IS NOT NULL AND ${oldCol} > 0;
+          `);
+          sqliteDb.exec(`ALTER TABLE ${table} DROP COLUMN ${oldCol};`);
+        } catch (e) {
+          console.error(`[SQLite Migration Error] Failed converting data or dropping old column ${oldCol} from ${table}:`, e.message);
+          throw e;
+        }
+      }
+    };
+
+    migrateMoneyCol('financial_transactions', 'amount', 'amount_paise');
+    migrateMoneyCol('financial_goals', 'target_price', 'target_price_paise');
+    migrateMoneyCol('financial_goals', 'allocated_amount', 'allocated_amount_paise');
+    migrateMoneyCol('cart_items', 'estimated_price', 'estimated_price_paise');
+    migrateMoneyCol('purchase_records', 'actual_price', 'actual_price_paise');
+    migrateMoneyCol('financial_preferences', 'daily_workday_income', 'daily_workday_income_paise', 22000);
+    migrateMoneyCol('financial_preferences', 'transport_daily_cost', 'transport_daily_cost_paise', 5000);
+    migrateMoneyCol('financial_preferences', 'transport_reserve_amount', 'transport_reserve_amount_paise', 10000);
+    migrateMoneyCol('financial_preferences', 'weekly_budget_limit', 'weekly_budget_limit_paise', 0);
+    migrateMoneyCol('financial_preferences', 'auto_approve_threshold', 'auto_approve_threshold_paise', 0);
+
+    // Migration for transaction linkage FK columns
+    const addLinkageCol = (table, colDef) => {
+      const tableCheck = sqliteDb.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table);
+      if (!tableCheck) return;
+      const colName = colDef.trim().split(' ')[0];
+      const cols = sqliteDb.pragma(`table_info(${table})`);
+      const exists = cols.some(c => c.name === colName);
+      if (!exists) {
+        try {
+          sqliteDb.exec(`ALTER TABLE ${table} ADD COLUMN ${colDef};`);
+        } catch (e) {
+          console.error(`[SQLite Migration Error] Failed adding linkage column ${colName} to ${table}:`, e.message);
+          throw e;
+        }
+      }
+    };
+
+    addLinkageCol('financial_transactions', 'financial_goal_id TEXT REFERENCES financial_goals(id) ON DELETE SET NULL');
+    addLinkageCol('financial_transactions', 'cart_item_id TEXT REFERENCES cart_items(id) ON DELETE SET NULL');
+    addLinkageCol('financial_transactions', 'purchase_record_id TEXT REFERENCES purchase_records(id) ON DELETE SET NULL');
+    addLinkageCol('financial_transactions', 'resource_id TEXT');
+    addLinkageCol('purchase_records', 'financial_transaction_id TEXT REFERENCES financial_transactions(id) ON DELETE SET NULL');
   } catch (e) {
-    console.warn('[SQLite Init Schema Warning]', e.message);
+    console.error('[SQLite Init Schema Error]', e.message);
+    throw e;
   }
 }
 

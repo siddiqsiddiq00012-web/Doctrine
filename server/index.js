@@ -21,6 +21,7 @@ import deRoutes from './routes/dataEngineering.js';
 import resourcesRoutes from './routes/resources.js';
 import dashboardRoutes from './routes/dashboard.js';
 import skincareRoutes from './routes/skincare.js';
+import financialRoutes from './routes/financial.js';
 import { start10pmSummaryScheduler } from './jobs/summaryScheduler.js';
 import { generateDailySummary } from './services/aiService.js';
 
@@ -185,6 +186,9 @@ app.use('/dashboard', dashboardRoutes);
 
 app.use('/api/skincare', skincareRoutes);
 app.use('/skincare', skincareRoutes);
+
+app.use('/api/financial', financialRoutes);
+app.use('/financial', financialRoutes);
 
 // Safe Production Database Diagnostic Endpoint (Boolean-Only, Sensitive Values Never Exposed)
 const handleDbDiag = async (req, res) => {
