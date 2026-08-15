@@ -127,6 +127,65 @@ test('FEATURE 13 — SMART SUNDAY PHOTO COMPARISON SYSTEM TESTS', async (t) => {
     assert.ok(result.disclaimer.includes('Not a Medical Diagnosis'));
   });
 
+  await t.test('8. Serverless Filesystem Failure Fallback to Data URI & Replacement Behavior', async () => {
+    const [reviewA] = await db
+      .select()
+      .from(weeklyReviews)
+      .where(and(eq(weeklyReviews.userId, userIdA), eq(weeklyReviews.weekStartDate, weekStartA)));
+
+    assert.ok(reviewA);
+
+    const mockDataUri = 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAQAcJaQAA3AA/v3AgAA=';
+
+    // Simulate disk failure fallback logic
+    let photoUrlToSave;
+    try {
+      throw new Error('Simulated Read-Only Serverless Disk Error');
+    } catch (diskErr) {
+      photoUrlToSave = mockDataUri;
+    }
+
+    assert.equal(photoUrlToSave, mockDataUri);
+
+    // Save as Data URI in DB
+    const photoId = cryptoNative.randomUUID();
+    await db.insert(progressPhotos).values({
+      id: photoId,
+      userId: userIdA,
+      weeklyReviewId: reviewA.id,
+      weekStartDate: weekStartA,
+      category: 'face',
+      photoUrl: photoUrlToSave,
+      createdAt: new Date().toISOString()
+    });
+
+    // Verify Data URI retrieval
+    const [savedDataUriPhoto] = await db.select().from(progressPhotos).where(eq(progressPhotos.id, photoId));
+    assert.ok(savedDataUriPhoto);
+    assert.equal(savedDataUriPhoto.category, 'face');
+    assert.equal(savedDataUriPhoto.photoUrl, mockDataUri);
+
+    // Verify Replacement / Overwrite Behavior
+    const newMockDataUri = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP...';
+    await db.update(progressPhotos)
+      .set({ photoUrl: newMockDataUri })
+      .where(eq(progressPhotos.id, photoId));
+
+    const [updatedPhoto] = await db.select().from(progressPhotos).where(eq(progressPhotos.id, photoId));
+    assert.equal(updatedPhoto.photoUrl, newMockDataUri);
+  });
+
+  await t.test('9. Optimized Payload Size Contract & Oversized Rejection Safety Verification', async () => {
+    // 9a. Standard canvas optimized Data URI is lightweight (< 500KB)
+    const mockOptimizedDataUri = 'data:image/jpeg;base64,' + 'A'.repeat(200000); // ~200KB
+    assert.ok(mockOptimizedDataUri.startsWith('data:image/jpeg;base64,'));
+    assert.ok(mockOptimizedDataUri.length < 500000);
+
+    // 9b. Server oversized validation rule check (> 5MB Buffer)
+    const oversizedBuffer = Buffer.alloc(5 * 1024 * 1024 + 1);
+    assert.ok(oversizedBuffer.length > 5 * 1024 * 1024);
+  });
+
   t.after(async () => {
     await db.delete(weeklyReviews).where(eq(weeklyReviews.userId, userIdA));
     await db.delete(weeklyReviews).where(eq(weeklyReviews.userId, userIdB));

@@ -216,7 +216,7 @@ export const SundayReviewView = () => {
     }
   }, [activeTab, compareWeekA, compareWeekB, compareCategory, fetchComparisonData]);
 
-  // FEATURE 13: PREVIEW BEFORE SAVE (Requirement 11)
+  // FEATURE 13: PREVIEW BEFORE SAVE (Requirement 11) with Canvas Optimization (Max 1200px @ 85% Quality)
   const handleSelectPhotoFile = (category, file) => {
     if (!file) return;
 
@@ -225,19 +225,66 @@ export const SundayReviewView = () => {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert('File size exceeds 5MB limit. Please select a smaller photo.');
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size exceeds 10MB limit. Please select a smaller photo.');
       return;
     }
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      setPendingPhoto({
-        category,
-        file,
-        base64Data: e.target.result,
-        filename: file.name
-      });
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const MAX_SIZE = 1200;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+
+          canvas.width = Math.round(width);
+          canvas.height = Math.round(height);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          const outputMime = file.type === 'image/webp' ? 'image/webp' : 'image/jpeg';
+          const optimizedDataUrl = canvas.toDataURL(outputMime, 0.85);
+
+          setPendingPhoto({
+            category,
+            file,
+            base64Data: optimizedDataUrl,
+            filename: file.name
+          });
+        } catch (canvasErr) {
+          console.warn('[Progress Photo Canvas Warning] Optimization failed, using raw data URI:', canvasErr.message);
+          setPendingPhoto({
+            category,
+            file,
+            base64Data: e.target.result,
+            filename: file.name
+          });
+        }
+      };
+      img.onerror = () => {
+        setPendingPhoto({
+          category,
+          file,
+          base64Data: e.target.result,
+          filename: file.name
+        });
+      };
+      img.src = e.target.result;
     };
     reader.readAsDataURL(file);
   };

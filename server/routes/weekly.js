@@ -185,17 +185,24 @@ router.post('/photos', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'File Too Large', message: 'Progress photo exceeds 5MB limit.' });
     }
 
-    // Disk Path setup
-    const photosDir = path.resolve(__dirname, '../../uploads/progress_photos');
-    if (!fs.existsSync(photosDir)) {
-      fs.mkdirSync(photosDir, { recursive: true });
+    // Attempt Local Disk Save with Fallback to DB Data URI for Serverless (Vercel)
+    let photoUrlToSave;
+    try {
+      const photosDir = path.resolve(__dirname, '../../uploads/progress_photos');
+      if (!fs.existsSync(photosDir)) {
+        fs.mkdirSync(photosDir, { recursive: true });
+      }
+
+      const filename = `progress_${userId}_${category}_${Date.now()}.${ext}`;
+      const fullDiskPath = path.join(photosDir, filename);
+      const relativeUrl = `/uploads/progress_photos/${filename}`;
+
+      fs.writeFileSync(fullDiskPath, base64Buffer);
+      photoUrlToSave = relativeUrl;
+    } catch (diskErr) {
+      console.warn('[Progress Photo Storage] Disk write disallowed or failed, storing Data URI directly in DB:', diskErr.message);
+      photoUrlToSave = photoData;
     }
-
-    const filename = `progress_${userId}_${category}_${Date.now()}.${ext}`;
-    const fullDiskPath = path.join(photosDir, filename);
-    const relativeUrl = `/uploads/progress_photos/${filename}`;
-
-    fs.writeFileSync(fullDiskPath, base64Buffer);
 
     // Save or update in DB
     const [existingPhoto] = await db
@@ -214,7 +221,7 @@ router.post('/photos', requireAuth, async (req, res) => {
       }
       await db
         .update(progressPhotos)
-        .set({ photoUrl: relativeUrl, createdAt: new Date().toISOString() })
+        .set({ photoUrl: photoUrlToSave, createdAt: new Date().toISOString() })
         .where(eq(progressPhotos.id, existingPhoto.id));
     } else {
       await db.insert(progressPhotos).values({
@@ -223,7 +230,7 @@ router.post('/photos', requireAuth, async (req, res) => {
         weeklyReviewId: review.id,
         weekStartDate,
         category,
-        photoUrl: relativeUrl,
+        photoUrl: photoUrlToSave,
         createdAt: new Date().toISOString()
       });
     }
@@ -231,7 +238,7 @@ router.post('/photos', requireAuth, async (req, res) => {
     res.json({
       success: true,
       category,
-      photoUrl: relativeUrl
+      photoUrl: photoUrlToSave
     });
   } catch (error) {
     console.error('[Weekly API Error] Photo upload failed:', error);
