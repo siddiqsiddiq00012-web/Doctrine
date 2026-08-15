@@ -35,10 +35,9 @@ const MainContent = () => {
     );
   }
 
-  // Login gate temporarily bypassed for instant full-site access
-  // if (!user) {
-  //   return <LoginView />;
-  // }
+  if (!user) {
+    return <LoginView />;
+  }
 
   const renderTab = () => {
     switch (activeTab) {

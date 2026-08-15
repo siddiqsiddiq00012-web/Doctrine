@@ -33,7 +33,8 @@ export const userPreferences = sqliteTable('user_preferences', {
 // Sessions Table
 export const sessions = sqliteTable('sessions', {
   id: text('id').primaryKey(),
-  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  sess: text('sess'),
   expiresAt: integer('expires_at').notNull(),
   createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
 }, (table) => ({

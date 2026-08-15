@@ -188,7 +188,7 @@ CRITICAL RULES:
 3. Tone: Analytical, objective, neutral. Absolutely NO generic motivational quotes or shame language (NO "stay disciplined", "you can do better", "don't give up").`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: [{ role: 'user', parts: [{ text: promptText }] }]
       });
 

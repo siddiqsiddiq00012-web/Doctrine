@@ -220,6 +220,14 @@ router.post('/logout', (req, res) => {
 
 // 5. Development Local Session Login Endpoint
 const handleDevLogin = async (req, res, isGetRedirect = false) => {
+  const isProduction = Boolean(process.env.VERCEL || process.env.VERCEL_ENV || process.env.NODE_ENV === 'production');
+  if (isProduction) {
+    return res.status(403).json({
+      error: 'Forbidden',
+      message: 'Development login is disabled in production environments.'
+    });
+  }
+
   try {
     const defaultGoogleId = 'dev_local_user_google_id';
     const defaultEmail = 'owner@doctrine.local';

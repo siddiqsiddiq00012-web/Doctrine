@@ -11,9 +11,53 @@ const __dirname = path.dirname(__filename);
 // Ensure .env is loaded
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-const tursoUrl = process.env.TURSO_DATABASE_URL || (process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith('libsql://') || process.env.DATABASE_URL.startsWith('https://')) ? process.env.DATABASE_URL : null);
-const isVercel = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
-const isValidTursoUrl = tursoUrl && !tursoUrl.includes('....') && !tursoUrl.includes('placeholder') && !tursoUrl.includes('undefined');
+export function getDbConfig(env = process.env) {
+  const isVercel = Boolean(env.VERCEL || env.VERCEL_ENV);
+  const isProduction = isVercel || env.NODE_ENV === 'production';
+  const tursoUrl = env.TURSO_DATABASE_URL || (env.DATABASE_URL && (env.DATABASE_URL.startsWith('libsql://') || env.DATABASE_URL.startsWith('https://')) ? env.DATABASE_URL : null);
+  const authToken = env.TURSO_AUTH_TOKEN;
+
+  const isValidTursoUrl = Boolean(tursoUrl && !tursoUrl.includes('....') && !tursoUrl.includes('placeholder') && !tursoUrl.includes('undefined'));
+  const isValidAuthToken = Boolean(authToken && authToken.trim().length > 0 && !authToken.includes('placeholder') && !authToken.includes('undefined'));
+
+  if (isProduction) {
+    if (!isValidTursoUrl) {
+      throw new Error('[FATAL PRODUCTION DB ERROR] Missing or invalid TURSO_DATABASE_URL environment variable. Ephemeral SQLite fallback is strictly prohibited in production.');
+    }
+    if (!isValidAuthToken) {
+      throw new Error('[FATAL PRODUCTION DB ERROR] Missing or invalid TURSO_AUTH_TOKEN environment variable. Ephemeral SQLite fallback is strictly prohibited in production.');
+    }
+    return { type: 'turso', tursoUrl, authToken, isProduction };
+  }
+
+  if (isValidTursoUrl && isValidAuthToken) {
+    return { type: 'turso', tursoUrl, authToken, isProduction };
+  }
+
+  const dbPath = env.DATABASE_URL && !env.DATABASE_URL.startsWith('libsql') && !env.DATABASE_URL.startsWith('http')
+    ? env.DATABASE_URL
+    : 'doctrine.db';
+
+  return { type: 'sqlite', dbPath, isProduction };
+}
+
+export function getSessionSecret(env = process.env) {
+  const isVercel = Boolean(env.VERCEL || env.VERCEL_ENV);
+  const isProduction = isVercel || env.NODE_ENV === 'production';
+  const devFallback = 'doctrine_dev_session_secret_change_in_production_12345';
+  const secret = env.SESSION_SECRET;
+
+  const isValidSecret = Boolean(secret && secret.trim().length > 0 && secret !== devFallback && !secret.includes('placeholder'));
+
+  if (isProduction) {
+    if (!isValidSecret) {
+      throw new Error('[FATAL PRODUCTION AUTH ERROR] Missing or invalid SESSION_SECRET environment variable. Production environments must define a secure, non-default SESSION_SECRET.');
+    }
+    return secret;
+  }
+
+  return (secret && secret.trim().length > 0) ? secret : devFallback;
+}
 
 let db;
 let sqlite = null;
@@ -46,7 +90,8 @@ function initSqliteSchema(sqliteDb) {
       );
       CREATE TABLE IF NOT EXISTS sessions (
         id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+        sess TEXT,
         expires_at INTEGER NOT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
@@ -201,22 +246,25 @@ function initSqliteSchema(sqliteDb) {
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    try { sqliteDb.exec('ALTER TABLE sessions ADD COLUMN sess TEXT;'); } catch (e) {}
   } catch (e) {
     console.warn('[SQLite Init Schema Warning]', e.message);
   }
 }
 
-if (isValidTursoUrl) {
+const config = getDbConfig(process.env);
+
+if (config.type === 'turso') {
   try {
     const { createClient } = await import('@libsql/client');
     const { drizzle } = await import('drizzle-orm/libsql');
     const client = createClient({
-      url: tursoUrl,
-      authToken: process.env.TURSO_AUTH_TOKEN
+      url: config.tursoUrl,
+      authToken: config.authToken
     });
     db = drizzle(client, { schema });
   } catch (err) {
-    if (isVercel || process.env.NODE_ENV === 'production') {
+    if (config.isProduction) {
       throw new Error(`[FATAL PRODUCTION DB ERROR] Failed to initialize Turso database client: ${err.message}`);
     }
     console.warn('[Turso Warning] Failed to initialize Turso client, falling back to local SQLite:', err.message);
@@ -227,15 +275,10 @@ if (isValidTursoUrl) {
     db = drizzle(sqlite, { schema });
   }
 } else {
-  if (isVercel || process.env.NODE_ENV === 'production') {
-    throw new Error('[FATAL PRODUCTION DB ERROR] Production environment requires valid TURSO_DATABASE_URL and TURSO_AUTH_TOKEN. Ephemeral SQLite fallback is strictly prohibited in production.');
-  }
-  const dbPath = process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith('libsql') && !process.env.DATABASE_URL.startsWith('http') ? process.env.DATABASE_URL : 'doctrine.db';
-  sqlite = new Database(dbPath);
+  sqlite = new Database(config.dbPath);
   sqlite.pragma('foreign_keys = ON');
   initSqliteSchema(sqlite);
   db = drizzle(sqlite, { schema });
 }
 
 export { db, sqlite };
-

@@ -171,6 +171,21 @@ test('FEATURE 14 — PERSONAL FAILURE PATTERN LOG SYSTEM TESTS', async (t) => {
     assert.equal(savedOther.userNote, 'Unexpected family obligation');
   });
 
+  await t.test('8. Failure Pattern AI Service Model Identifier Verification', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const servicePath = path.resolve(__dirname, '../services/failurePatternService.js');
+
+    const sourceCode = fs.readFileSync(servicePath, 'utf8');
+
+    assert.equal(sourceCode.includes('gemini-2.0-flash'), false, 'Deprecated model gemini-2.0-flash must not be used');
+    assert.equal(sourceCode.includes('gemini-2.5-flash'), true, 'Supported model gemini-2.5-flash must be used');
+  });
+
   t.after(async () => {
     await db.delete(taskFailureReasons).where(eq(taskFailureReasons.userId, userIdA));
     await db.delete(taskFailureReasons).where(eq(taskFailureReasons.userId, userIdB));

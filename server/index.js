@@ -8,7 +8,8 @@ import { fileURLToPath } from 'url';
 
 import { runMigrations } from './db/migrate.js';
 import { requireAuth } from './middleware/authMiddleware.js';
-import { db } from './db/index.js';
+import { db, getSessionSecret } from './db/index.js';
+import { DrizzleSessionStore } from './db/sessionStore.js';
 import { users, userPreferences, sessions, dailySummaries, progressPhotos } from './db/schema.js';
 import { eq, and, sql } from 'drizzle-orm';
 import authRoutes from './routes/auth.js';
@@ -94,13 +95,14 @@ app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// Configure HTTP-Only Signed Session Cookies
-const sessionSecret = process.env.SESSION_SECRET || 'doctrine_dev_session_secret_change_in_production_12345';
+// Configure HTTP-Only Signed Session Cookies with Persistent DB Store
+const sessionSecret = getSessionSecret(process.env);
 const isProduction = process.env.NODE_ENV === 'production' || isVercel;
 
 app.use(
   session({
     name: 'doctrine_session',
+    store: new DrizzleSessionStore(),
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
