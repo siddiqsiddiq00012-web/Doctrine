@@ -158,16 +158,21 @@ router.get('/me', async (req, res) => {
       user = foundUser || null;
     }
 
-    // In local non-production environments only, fall back to first active user if unauthenticated
+    // In local non-production environments only, fall back to default dev user if unauthenticated
     if (!user && !isProduction) {
-      const [foundActive] = await db.select().from(users).where(eq(users.isActive, true)).limit(1);
-      user = foundActive || null;
+      const STABLE_DEFAULT_USER_ID = 'default-user-siddiq';
+      const [defaultUser] = await db.select().from(users).where(eq(users.id, STABLE_DEFAULT_USER_ID)).limit(1);
+      user = defaultUser || null;
 
       if (!user) {
-        const newId = cryptoNative.randomUUID();
+        const [foundActive] = await db.select().from(users).where(eq(users.isActive, true)).limit(1);
+        user = foundActive || null;
+      }
+
+      if (!user) {
         const nowIso = new Date().toISOString();
         await db.insert(users).values({
-          id: newId,
+          id: STABLE_DEFAULT_USER_ID,
           googleId: 'dev_default_user',
           email: 'owner@doctrine.local',
           displayName: 'siddiq',
@@ -177,7 +182,7 @@ router.get('/me', async (req, res) => {
           updatedAt: nowIso,
           lastLoginAt: nowIso
         });
-        [user] = await db.select().from(users).where(eq(users.id, newId)).limit(1);
+        [user] = await db.select().from(users).where(eq(users.id, STABLE_DEFAULT_USER_ID)).limit(1);
       }
 
       if (req.session && user) {

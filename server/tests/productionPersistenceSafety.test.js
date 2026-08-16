@@ -304,15 +304,16 @@ test('PRODUCTION PERSISTENCE & ARCHITECTURAL SAFETY TESTS', async (t) => {
     assert.equal(unauthState.user, null);
 
     // Simulated App.jsx gate decision function
-    const resolveAppScreen = (user, loadingAuth) => {
+    const resolveAppScreen = (user, loadingAuth, isDev = false) => {
       if (loadingAuth) return 'LOADING';
-      if (!user) return 'LOGIN_VIEW';
+      if (!user && !isDev) return 'LOGIN_VIEW';
       return 'MAIN_APP';
     };
 
-    assert.equal(resolveAppScreen(null, true), 'LOADING');
-    assert.equal(resolveAppScreen(null, false), 'LOGIN_VIEW');
-    assert.equal(resolveAppScreen({ id: 'user_123' }, false), 'MAIN_APP');
+    assert.equal(resolveAppScreen(null, true, false), 'LOADING');
+    assert.equal(resolveAppScreen(null, false, false), 'LOGIN_VIEW');
+    assert.equal(resolveAppScreen(null, false, true), 'MAIN_APP');
+    assert.equal(resolveAppScreen({ id: 'user_123' }, false, false), 'MAIN_APP');
   });
 
   t.after(async () => {

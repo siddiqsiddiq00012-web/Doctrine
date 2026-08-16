@@ -30,7 +30,14 @@ export const AppProvider = ({ children }) => {
     return today.toISOString().split('T')[0];
   };
 
-  const [user, setUser] = useState(null);
+  const DEV_DEFAULT_USER = {
+    id: 'default-user-siddiq',
+    email: 'owner@doctrine.local',
+    displayName: 'siddiq',
+    avatarUrl: ''
+  };
+
+  const [user, setUser] = useState(import.meta.env.DEV ? DEV_DEFAULT_USER : null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   // Active Tab state with LocalStorage persistence to remain on current screen on refresh
   const [activeTab, setActiveTab] = useState(() => {
@@ -264,15 +271,26 @@ export const AppProvider = ({ children }) => {
         if (data.authenticated && data.user) {
           setUser(data.user);
           fetchUserPreferences();
+        } else if (import.meta.env.DEV) {
+          setUser(DEV_DEFAULT_USER);
+          fetchUserPreferences();
         } else {
           setUser(null);
         }
+      } else if (import.meta.env.DEV) {
+        setUser(DEV_DEFAULT_USER);
+        fetchUserPreferences();
       } else {
         setUser(null);
       }
     } catch (err) {
       console.error('Auth verification failed:', err);
-      setUser(null);
+      if (import.meta.env.DEV) {
+        setUser(DEV_DEFAULT_USER);
+        fetchUserPreferences();
+      } else {
+        setUser(null);
+      }
     } finally {
       setLoadingAuth(false);
     }

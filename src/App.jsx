@@ -37,7 +37,7 @@ const MainContent = () => {
     );
   }
 
-  if (!user) {
+  if (!user && !import.meta.env.DEV) {
     return <LoginView />;
   }
 
