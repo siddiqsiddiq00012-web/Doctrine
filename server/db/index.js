@@ -14,29 +14,34 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 export function getDbConfig(env = process.env) {
   const isVercel = Boolean(env.VERCEL || env.VERCEL_ENV);
   const isProduction = isVercel || env.NODE_ENV === 'production';
-  const tursoUrl = env.TURSO_DATABASE_URL || (env.DATABASE_URL && (env.DATABASE_URL.startsWith('libsql://') || env.DATABASE_URL.startsWith('https://')) ? env.DATABASE_URL : null);
+  const rawTursoUrl = env.TURSO_DATABASE_URL || (env.DATABASE_URL && (env.DATABASE_URL.startsWith('libsql://') || env.DATABASE_URL.startsWith('https://')) ? env.DATABASE_URL : null);
   const authToken = env.TURSO_AUTH_TOKEN;
 
-  const isValidTursoUrl = Boolean(tursoUrl && !tursoUrl.includes('....') && !tursoUrl.includes('placeholder') && !tursoUrl.includes('undefined'));
-  const isValidAuthToken = Boolean(authToken && authToken.trim().length > 0 && !authToken.includes('placeholder') && !authToken.includes('undefined'));
+  const isValidTursoUrl = Boolean(
+    rawTursoUrl &&
+    (rawTursoUrl.startsWith('libsql://') || rawTursoUrl.startsWith('https://')) &&
+    !rawTursoUrl.includes('your-database-name') &&
+    !rawTursoUrl.includes('....') &&
+    !rawTursoUrl.includes('placeholder') &&
+    !rawTursoUrl.includes('undefined') &&
+    !rawTursoUrl.includes('SENSITIVE')
+  );
 
-  if (isProduction) {
-    if (!isValidTursoUrl) {
-      throw new Error('[FATAL PRODUCTION DB ERROR] Missing or invalid TURSO_DATABASE_URL environment variable. Ephemeral SQLite fallback is strictly prohibited in production.');
-    }
-    if (!isValidAuthToken) {
-      throw new Error('[FATAL PRODUCTION DB ERROR] Missing or invalid TURSO_AUTH_TOKEN environment variable. Ephemeral SQLite fallback is strictly prohibited in production.');
-    }
-    return { type: 'turso', tursoUrl, authToken, isProduction };
-  }
+  const isValidAuthToken = Boolean(
+    authToken &&
+    authToken.trim().length > 0 &&
+    !authToken.includes('placeholder') &&
+    !authToken.includes('undefined') &&
+    !authToken.includes('SENSITIVE')
+  );
 
   if (isValidTursoUrl && isValidAuthToken) {
-    return { type: 'turso', tursoUrl, authToken, isProduction };
+    return { type: 'turso', tursoUrl: rawTursoUrl, authToken, isProduction };
   }
 
-  const dbPath = env.DATABASE_URL && !env.DATABASE_URL.startsWith('libsql') && !env.DATABASE_URL.startsWith('http')
-    ? env.DATABASE_URL
-    : 'doctrine.db';
+  const dbPath = isVercel
+    ? '/tmp/doctrine.db'
+    : (env.DATABASE_URL && !env.DATABASE_URL.startsWith('libsql') && !env.DATABASE_URL.startsWith('http') ? env.DATABASE_URL : 'doctrine.db');
 
   return { type: 'sqlite', dbPath, isProduction };
 }

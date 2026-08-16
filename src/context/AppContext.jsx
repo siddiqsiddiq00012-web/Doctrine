@@ -30,6 +30,11 @@ export const AppProvider = ({ children }) => {
     return today.toISOString().split('T')[0];
   };
 
+  const isLocalDev = Boolean(
+    import.meta.env.DEV ||
+    (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+  );
+
   const DEV_DEFAULT_USER = {
     id: 'default-user-siddiq',
     email: 'owner@doctrine.local',
@@ -37,7 +42,7 @@ export const AppProvider = ({ children }) => {
     avatarUrl: ''
   };
 
-  const [user, setUser] = useState(import.meta.env.DEV ? DEV_DEFAULT_USER : null);
+  const [user, setUser] = useState(isLocalDev ? DEV_DEFAULT_USER : null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   // Active Tab state with LocalStorage persistence to remain on current screen on refresh
   const [activeTab, setActiveTab] = useState(() => {
@@ -271,13 +276,13 @@ export const AppProvider = ({ children }) => {
         if (data.authenticated && data.user) {
           setUser(data.user);
           fetchUserPreferences();
-        } else if (import.meta.env.DEV) {
+        } else if (isLocalDev) {
           setUser(DEV_DEFAULT_USER);
           fetchUserPreferences();
         } else {
           setUser(null);
         }
-      } else if (import.meta.env.DEV) {
+      } else if (isLocalDev) {
         setUser(DEV_DEFAULT_USER);
         fetchUserPreferences();
       } else {
@@ -285,7 +290,7 @@ export const AppProvider = ({ children }) => {
       }
     } catch (err) {
       console.error('Auth verification failed:', err);
-      if (import.meta.env.DEV) {
+      if (isLocalDev) {
         setUser(DEV_DEFAULT_USER);
         fetchUserPreferences();
       } else {
@@ -294,7 +299,7 @@ export const AppProvider = ({ children }) => {
     } finally {
       setLoadingAuth(false);
     }
-  }, [fetchUserPreferences]);
+  }, [fetchUserPreferences, isLocalDev]);
 
   useEffect(() => {
     checkAuth();

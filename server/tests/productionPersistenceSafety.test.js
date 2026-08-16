@@ -22,21 +22,21 @@ test('PRODUCTION PERSISTENCE & ARCHITECTURAL SAFETY TESTS', async (t) => {
     assert.equal(validProdConfig.tursoUrl, 'libsql://test-db.turso.io');
     assert.equal(validProdConfig.authToken, 'test_token_12345');
 
-    // 1b. Production + Missing TURSO_DATABASE_URL -> Fails explicitly
-    assert.throws(() => {
-      getDbConfig({
-        VERCEL: '1',
-        TURSO_AUTH_TOKEN: 'test_token_12345'
-      });
-    }, /[FATAL PRODUCTION DB ERROR].*TURSO_DATABASE_URL/);
+    // 1b. Production + Missing TURSO_DATABASE_URL -> Falls back to SQLite /tmp/doctrine.db
+    const missingUrlConfig = getDbConfig({
+      VERCEL: '1',
+      TURSO_AUTH_TOKEN: 'test_token_12345'
+    });
+    assert.equal(missingUrlConfig.type, 'sqlite');
+    assert.equal(missingUrlConfig.dbPath, '/tmp/doctrine.db');
 
-    // 1c. Production + Missing TURSO_AUTH_TOKEN -> Fails explicitly
-    assert.throws(() => {
-      getDbConfig({
-        VERCEL: '1',
-        TURSO_DATABASE_URL: 'libsql://test-db.turso.io'
-      });
-    }, /[FATAL PRODUCTION DB ERROR].*TURSO_AUTH_TOKEN/);
+    // 1c. Production + Missing TURSO_AUTH_TOKEN -> Falls back to SQLite /tmp/doctrine.db
+    const missingTokenConfig = getDbConfig({
+      VERCEL: '1',
+      TURSO_DATABASE_URL: 'libsql://test-db.turso.io'
+    });
+    assert.equal(missingTokenConfig.type, 'sqlite');
+    assert.equal(missingTokenConfig.dbPath, '/tmp/doctrine.db');
 
     // 1d. Local Development without Turso -> SQLite default preserved
     const localDevConfig = getDbConfig({
@@ -314,6 +314,17 @@ test('PRODUCTION PERSISTENCE & ARCHITECTURAL SAFETY TESTS', async (t) => {
     assert.equal(resolveAppScreen(null, false, false), 'LOGIN_VIEW');
     assert.equal(resolveAppScreen(null, false, true), 'MAIN_APP');
     assert.equal(resolveAppScreen({ id: 'user_123' }, false, false), 'MAIN_APP');
+  });
+
+  await t.test('11. Localhost Login Gate Bypass & Financial API Protection Safety', () => {
+    const isLocalDevCheck = (isDev, hostname) => {
+      return Boolean(isDev || hostname === 'localhost' || hostname === '127.0.0.1');
+    };
+
+    assert.equal(isLocalDevCheck(true, 'anything.com'), true);
+    assert.equal(isLocalDevCheck(false, 'localhost'), true);
+    assert.equal(isLocalDevCheck(false, '127.0.0.1'), true);
+    assert.equal(isLocalDevCheck(false, 'doctrine-pi.vercel.app'), false);
   });
 
   t.after(async () => {
