@@ -13,6 +13,7 @@ import { SkincareView } from './components/SkincareView';
 import { SettingsView } from './components/SettingsView';
 import { BudgetView } from './components/BudgetView';
 import { CartView } from './components/CartView';
+import { GoalsView } from './components/GoalsView';
 import { LoginView } from './components/LoginView';
 import { Navbar } from './components/Navbar';
 import { OverflowMenu } from './components/OverflowMenu';
@@ -50,6 +51,7 @@ const MainContent = () => {
     switch (activeTab) {
       case 'home': return <HomeView />;
       case 'today': return <TodayView />;
+      case 'goals': return <GoalsView />;
       case 'budget': return <BudgetView />;
       case 'cart': return <CartView />;
       case 'skincare': return <SkincareView />;

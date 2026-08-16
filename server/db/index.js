@@ -335,8 +335,123 @@ function initSqliteSchema(sqliteDb) {
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE IF NOT EXISTS life_areas (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        key TEXT NOT NULL,
+        name TEXT NOT NULL,
+        color TEXT,
+        icon TEXT,
+        sort_order INTEGER NOT NULL DEFAULT 1,
+        is_system_default INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, key)
+      );
+      CREATE TABLE IF NOT EXISTS goals (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        parent_id TEXT REFERENCES goals(id) ON DELETE SET NULL,
+        life_area_id TEXT NOT NULL REFERENCES life_areas(id) ON DELETE CASCADE,
+        level TEXT NOT NULL DEFAULT 'GOAL',
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'PLANNED',
+        priority INTEGER NOT NULL DEFAULT 1,
+        target_date TEXT,
+        financial_goal_id TEXT REFERENCES financial_goals(id) ON DELETE SET NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS goal_milestones (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        target_value REAL NOT NULL DEFAULT 1,
+        current_value REAL NOT NULL DEFAULT 0,
+        is_completed INTEGER NOT NULL DEFAULT 0,
+        completed_at TEXT,
+        due_date TEXT,
+        sort_order INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS goal_task_mappings (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        goal_id TEXT NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+        milestone_id TEXT REFERENCES goal_milestones(id) ON DELETE CASCADE,
+        task_key TEXT NOT NULL,
+        category TEXT,
+        weight INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS goals_user_status_idx ON goals(user_id, status);
+      CREATE INDEX IF NOT EXISTS goals_user_area_idx ON goals(user_id, life_area_id);
+      CREATE INDEX IF NOT EXISTS goals_parent_idx ON goals(parent_id);
+      CREATE INDEX IF NOT EXISTS milestones_goal_idx ON goal_milestones(goal_id);
+      CREATE INDEX IF NOT EXISTS milestones_user_idx ON goal_milestones(user_id);
+      CREATE INDEX IF NOT EXISTS task_mappings_goal_task_idx ON goal_task_mappings(goal_id, task_key);
+      CREATE INDEX IF NOT EXISTS task_mappings_milestone_idx ON goal_task_mappings(milestone_id);
+      CREATE INDEX IF NOT EXISTS task_mappings_user_task_idx ON goal_task_mappings(user_id, task_key);
+
+      CREATE TABLE IF NOT EXISTS daily_adaptations (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        daily_execution_id TEXT NOT NULL REFERENCES daily_executions(id) ON DELETE CASCADE,
+        date TEXT NOT NULL,
+        capacity_mode TEXT NOT NULL,
+        available_minutes INTEGER,
+        reason TEXT DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS daily_adaptations_user_date_idx ON daily_adaptations(user_id, date);
+      CREATE INDEX IF NOT EXISTS daily_adaptations_daily_exec_idx ON daily_adaptations(daily_execution_id);
     `);
     try { sqliteDb.exec('ALTER TABLE sessions ADD COLUMN sess TEXT;'); } catch (e) {}
+    try { sqliteDb.exec("ALTER TABLE daily_executions ADD COLUMN current_capacity_mode TEXT NOT NULL DEFAULT 'NORMAL';"); } catch (e) {}
+    try { sqliteDb.exec("ALTER TABLE task_executions ADD COLUMN deferred_to_date TEXT;"); } catch (e) {}
+    try { sqliteDb.exec("ALTER TABLE task_executions ADD COLUMN source_task_execution_id TEXT REFERENCES task_executions(id) ON DELETE SET NULL;"); } catch (e) {}
+
+    // Idempotent default Life Areas seeder for all active users
+    const seedDefaultLifeAreasForUser = (userId) => {
+      if (!userId) return;
+      const DEFAULT_AREAS = [
+        { key: 'PHYSICAL', name: 'Physical Transformation', color: '#3B82F6', icon: 'User', sort_order: 1 },
+        { key: 'SKINCARE_GROOMING', name: 'Skin & Hair Protocol', color: '#10B981', icon: 'Sparkles', sort_order: 2 },
+        { key: 'FITNESS_NUTRITION', name: 'Fitness & Anabolic Nutrition', color: '#F59E0B', icon: 'Dumbbell', sort_order: 3 },
+        { key: 'DATA_ENGINEERING', name: 'Data Engineering & Tech', color: '#8B5CF6', icon: 'Database', sort_order: 4 },
+        { key: 'FINANCE', name: 'Financial Independence', color: '#06B6D4', icon: 'Wallet', sort_order: 5 },
+        { key: 'CAREER_PROJECTS', name: 'Career & Projects', color: '#EC4899', icon: 'Briefcase', sort_order: 6 },
+        { key: 'SPIRITUAL_MINDFULNESS', name: 'Spiritual Grounding & Mindfulness', color: '#6366F1', icon: 'Moon', sort_order: 7 },
+        { key: 'PERSONAL_DEVELOPMENT', name: 'Habits & Self-Mastery', color: '#64748B', icon: 'Target', sort_order: 8 },
+      ];
+
+      const checkStmt = sqliteDb.prepare("SELECT 1 FROM life_areas WHERE user_id = ? AND key = ?");
+      const insertStmt = sqliteDb.prepare(`
+        INSERT INTO life_areas (id, user_id, key, name, color, icon, sort_order, is_system_default)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      `);
+
+      for (const area of DEFAULT_AREAS) {
+        const exists = checkStmt.get(userId, area.key);
+        if (!exists) {
+          const areaId = `la_${userId}_${area.key.toLowerCase()}`;
+          insertStmt.run(areaId, userId, area.key, area.name, area.color, area.icon, area.sort_order);
+        }
+      }
+    };
+
+    try {
+      const allUsers = sqliteDb.prepare("SELECT id FROM users").all();
+      for (const u of allUsers) {
+        seedDefaultLifeAreasForUser(u.id);
+      }
+    } catch (e) {
+      console.error('[SQLite Migration Error] Failed seeding default life areas:', e.message);
+    }
+
 
     // Data-preserving migration helper for Task 1 REAL -> Task 2/3/4 INTEGER paise columns
     const migrateMoneyCol = (table, oldCol, newCol, defaultVal = 0) => {

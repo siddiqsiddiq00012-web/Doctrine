@@ -13,11 +13,12 @@ import {
   AlertCircle,
   RefreshCw,
   Flame,
-  Award
+  Award,
+  Target
 } from 'lucide-react';
 
 export const HomeView = () => {
-  const { setActiveTab, getTodayStr, userPreferences, user } = useApp();
+  const { setActiveTab, getTodayStr, userPreferences, user, goalHierarchy, adaptationState } = useApp();
 
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -164,6 +165,45 @@ export const HomeView = () => {
         </div>
       </div>
 
+      {/* ADAPTIVE EXECUTION COMMAND CENTER CARD */}
+      <div className="card interactive" onClick={() => setActiveTab('today')} style={{
+        background: 'var(--bg-card)',
+        borderColor: 'var(--accent-purple)',
+        borderLeft: '4px solid var(--accent-purple)',
+        padding: '16px 20px',
+        marginBottom: '16px'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent-purple)', textTransform: 'uppercase', letterSpacing: '0.8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Sparkles size={14} /> ADAPTIVE EXECUTION STATUS
+            </div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
+              Execution Mode: <strong style={{ color: 'var(--accent-purple)' }}>{(adaptationState?.capacityMode || 'NORMAL').replace('_', ' ')}</strong>
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+              {adaptationState && adaptationState.capacityMode !== 'NORMAL' ? (
+                <>
+                  {adaptationState.availableMinutes !== null ? `${adaptationState.availableMinutes} min available` : 'Plan Compressed'}
+                  {' • '}Essential Tasks: <strong>{adaptationState.adaptedPlan?.essentialTaskKeys?.length || 0}</strong>
+                  {' • '}Adapted Compliance: <strong style={{ color: 'var(--accent-purple)' }}>{adaptationState.adaptedCompliance || 0}%</strong>
+                </>
+              ) : (
+                'Operating under normal Doctrine plan without capacity constraints.'
+              )}
+            </div>
+          </div>
+
+          <button
+            className="btn btn-secondary"
+            onClick={(e) => { e.stopPropagation(); setActiveTab('today'); }}
+            style={{ fontSize: '12px', padding: '6px 12px', fontWeight: 600 }}
+          >
+            Configure Capacity →
+          </button>
+        </div>
+      </div>
+
       {/* DYNAMIC HIGHEST-PRIORITY ACTION BANNER */}
       {primaryAction && (
         <div className="card interactive" onClick={() => setActiveTab(primaryAction.targetTab)} style={{
@@ -225,6 +265,31 @@ export const HomeView = () => {
           </div>
         </div>
       )}
+
+      {/* GOAL PROGRESSION ENGINE SUMMARY CARD */}
+      <div className="card" style={{ padding: '16px 20px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--accent-blue-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)' }}>
+              <Target size={20} />
+            </div>
+            <div>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>Goal Progression Engine</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                {goalHierarchy?.visions?.length || 0} Visions • {((goalHierarchy?.visions || []).flatMap(v => v.children || []).length + (goalHierarchy?.standaloneObjectives || []).length)} Objectives Active
+              </div>
+            </div>
+          </div>
+
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setActiveTab('goals')}
+            style={{ fontSize: '12px', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            Goals Engine →
+          </button>
+        </div>
+      </div>
 
       {/* TWO COLUMN GRID: TODAY'S PRIORITIES + DATA ENGINEERING */}
       <div className="grid-2" style={{ marginBottom: '16px', gap: '16px' }}>

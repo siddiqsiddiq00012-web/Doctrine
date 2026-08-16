@@ -170,8 +170,58 @@ export const TodayView = () => {
     toggleTahajjud,
     toggleAnchor,
     togglePrepItem,
-    updateDailyNotes
+    updateDailyNotes,
+    adaptationState,
+    adaptationLoading,
+    adaptationError,
+    fetchAdaptation,
+    setCapacityMode,
+    rescheduleTask
   } = useApp();
+
+  const [capacityInput, setCapacityInput] = useState('NORMAL');
+  const [availableMinsInput, setAvailableMinsInput] = useState('');
+  const [reasonInput, setReasonInput] = useState('');
+  const [rescheduleModalTask, setRescheduleModalTask] = useState(null);
+  const [targetDateInput, setTargetDateInput] = useState('');
+  const [rescheduleError, setRescheduleError] = useState(null);
+  const [rescheduleSubmitting, setRescheduleSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetchAdaptation(selectedDate);
+  }, [selectedDate, fetchAdaptation]);
+
+  useEffect(() => {
+    if (adaptationState) {
+      setCapacityInput(adaptationState.capacityMode || 'NORMAL');
+      setAvailableMinsInput(adaptationState.availableMinutes !== null && adaptationState.availableMinutes !== undefined ? String(adaptationState.availableMinutes) : '');
+    }
+  }, [adaptationState]);
+
+  const handleApplyCapacity = async (e) => {
+    e.preventDefault();
+    try {
+      await setCapacityMode(selectedDate, capacityInput, availableMinsInput, reasonInput);
+      setReasonInput('');
+    } catch (err) {
+      console.error('Failed applying capacity:', err);
+    }
+  };
+
+  const handleRescheduleConfirm = async () => {
+    if (!rescheduleModalTask || !targetDateInput) return;
+    setRescheduleSubmitting(true);
+    setRescheduleError(null);
+    try {
+      await rescheduleTask(rescheduleModalTask.id, targetDateInput);
+      setRescheduleModalTask(null);
+      setTargetDateInput('');
+    } catch (err) {
+      setRescheduleError(err.message || 'Task could not be rescheduled. It may already be completed or max carryover depth reached.');
+    } finally {
+      setRescheduleSubmitting(false);
+    }
+  };
 
   const [nowMinutes, setNowMinutes] = useState(() => {
     const d = new Date();
@@ -194,6 +244,11 @@ export const TodayView = () => {
   const totalTasks = dayDoctrine.timeBlocks.length;
   const completedCount = dayDoctrine.timeBlocks.filter(b => !!currentLog.completedTasks[b.id]?.completed).length;
   const progressPct = Math.round((completedCount / totalTasks) * 100);
+
+  // Raw vs Adapted Compliance from backend adaptationState
+  const isAdaptedMode = adaptationState && adaptationState.capacityMode && adaptationState.capacityMode !== 'NORMAL';
+  const rawCompliancePct = adaptationState?.rawCompliance !== undefined ? adaptationState.rawCompliance : progressPct;
+  const adaptedCompliancePct = adaptationState?.adaptedCompliance !== undefined ? adaptationState.adaptedCompliance : progressPct;
 
   // Namaz total
   const namazKeys = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
@@ -256,17 +311,165 @@ export const TodayView = () => {
           />
         </div>
 
-        {/* Progress Bar */}
+        {/* Dual Compliance Progress Bars */}
         <div style={{ marginTop: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>Doctrine Completion</span>
-            <span style={{ color: 'var(--accent-blue)' }}>{completedCount} of {totalTasks} ({progressPct}%)</span>
+            <span style={{ color: 'var(--text-secondary)' }}>Raw Historical Compliance</span>
+            <span style={{ color: 'var(--accent-blue)' }}>{completedCount} of {totalTasks} ({rawCompliancePct}%)</span>
           </div>
-          <div className="progress-container">
-            <div className="progress-fill" style={{ width: `${progressPct}%` }}></div>
+          <div className="progress-container" style={{ height: '6px', marginBottom: isAdaptedMode ? '10px' : '0' }}>
+            <div className="progress-fill" style={{ width: `${rawCompliancePct}%` }}></div>
           </div>
+
+          {isAdaptedMode && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
+                <span style={{ color: 'var(--accent-purple)' }}>Adapted Plan Compliance ({adaptationState.capacityMode})</span>
+                <span style={{ color: 'var(--accent-purple)' }}>{adaptedCompliancePct}%</span>
+              </div>
+              <div className="progress-container" style={{ height: '8px', background: 'var(--accent-purple-subtle)' }}>
+                <div className="progress-fill" style={{ width: `${adaptedCompliancePct}%`, background: 'var(--accent-purple)' }}></div>
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: '1.4' }}>
+                ⓘ Raw compliance reflects historical reality. Adapted compliance tracks execution against today's compressed plan. 100% adapted compliance means essential targets were met under constrained capacity.
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* ADAPTIVE CAPACITY CONTROLS CARD */}
+      <div className="card" style={{ padding: '16px 20px', marginBottom: '16px', borderLeft: '4px solid var(--accent-purple)' }}>
+        <div className="card-title" style={{ marginBottom: '8px' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Sparkles size={18} color="var(--accent-purple)" /> Adaptive Execution & Capacity Mode
+          </span>
+          <span className={`badge ${isAdaptedMode ? 'badge-purple' : 'badge-secondary'}`}>
+            Mode: {adaptationState?.capacityMode || 'NORMAL'}
+          </span>
+        </div>
+        <div className="card-subtitle" style={{ marginBottom: '12px' }}>
+          Adapt your daily plan to current time and energy constraints without corrupting historical records.
+        </div>
+
+        <form onSubmit={handleApplyCapacity}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px', marginBottom: '12px' }}>
+            {['NORMAL', 'MINIMUM_VIABLE', 'EXAM_COMPRESSED', 'REST_RECOVERY'].map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                className={`btn ${capacityInput === mode ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setCapacityInput(mode)}
+                style={{
+                  padding: '8px 10px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  textTransform: 'capitalize',
+                  borderColor: capacityInput === mode ? 'var(--accent-purple)' : ''
+                }}
+              >
+                {mode.replace('_', ' ')}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
+            <div style={{ flex: '1 1 120px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                Available Minutes (Optional)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="1440"
+                placeholder="e.g. 60"
+                value={availableMinsInput}
+                onChange={(e) => setAvailableMinsInput(e.target.value)}
+                className="form-input"
+                style={{ width: '100%', padding: '6px 10px', fontSize: '12px' }}
+              />
+            </div>
+            <div style={{ flex: '2 1 200px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                Constraint Reason (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. College Exam, Low Energy, Limited Time"
+                value={reasonInput}
+                onChange={(e) => setReasonInput(e.target.value)}
+                className="form-input"
+                style={{ width: '100%', padding: '6px 10px', fontSize: '12px' }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={adaptationLoading}
+              style={{ fontSize: '12px', padding: '6px 16px', fontWeight: 600 }}
+            >
+              {adaptationLoading ? 'Updating Capacity...' : 'Apply Capacity Mode'}
+            </button>
+          </div>
+        </form>
+
+        {adaptationError && (
+          <div style={{ fontSize: '12px', color: '#EF4444', marginTop: '8px', padding: '6px 10px', borderRadius: '6px', background: '#FEE2E2' }}>
+            ⚠ {adaptationError}
+          </div>
+        )}
+      </div>
+
+      {/* RESCHEDULE TASK MODAL */}
+      {rescheduleModalTask && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: '20px'
+        }}>
+          <div className="card" style={{ maxWidth: '420px', width: '100%', padding: '24px', background: 'var(--bg-card)' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>Reschedule / Defer Task</h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+              Defer <strong>{rescheduleModalTask.activity || rescheduleModalTask.taskKey}</strong> to a future target date. The origin execution will be marked SKIPPED with a carryover link.
+            </p>
+
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Select Target Date</label>
+            <input
+              type="date"
+              value={targetDateInput}
+              onChange={(e) => setTargetDateInput(e.target.value)}
+              className="form-input"
+              style={{ width: '100%', padding: '8px 12px', marginBottom: '16px' }}
+            />
+
+            {rescheduleError && (
+              <div style={{ fontSize: '12px', color: '#EF4444', marginBottom: '12px', padding: '8px', borderRadius: '6px', background: '#FEE2E2' }}>
+                ⚠ {rescheduleError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setRescheduleModalTask(null)}
+                disabled={rescheduleSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleRescheduleConfirm}
+                disabled={rescheduleSubmitting || !targetDateInput}
+              >
+                {rescheduleSubmitting ? 'Rescheduling...' : 'Confirm Reschedule'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* HERO "WHAT NOW?" EXECUTION COMMAND SURFACE */}
       {selectedDate === getTodayStr() && currentBlock && (
@@ -401,8 +604,36 @@ export const TodayView = () => {
                     <div className="task-text" style={{ marginTop: '2px' }}>
                       {block.activity}
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div className="task-category">{block.category}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <div className="task-category">{block.category}</div>
+                        {(block.id.startsWith('carryover_') || block.sourceTaskExecutionId) && (
+                          <span className="badge badge-purple" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                            Carryover Task
+                          </span>
+                        )}
+                      </div>
+
+                      {!isCompleted && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRescheduleModalTask(block);
+                            // Default target date to tomorrow
+                            const nextD = new Date(selectedDate + 'T00:00:00');
+                            nextD.setDate(nextD.getDate() + 1);
+                            const y = nextD.getFullYear();
+                            const m = String(nextD.getMonth() + 1).padStart(2, '0');
+                            const d = String(nextD.getDate()).padStart(2, '0');
+                            setTargetDateInput(`${y}-${m}-${d}`);
+                          }}
+                          style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '4px' }}
+                        >
+                          Reschedule / Defer →
+                        </button>
+                      )}
                     </div>
 
                     {/* FEATURE 12: WHY THIS MATTERS CONTEXTUAL SNIPPET */}

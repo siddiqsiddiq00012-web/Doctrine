@@ -818,6 +818,287 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // Goal Management State & API Integration
+  const [goalHierarchy, setGoalHierarchy] = useState({ visions: [], standaloneObjectives: [], standaloneGoals: [] });
+  const [lifeAreas, setLifeAreas] = useState([]);
+  const [goalLoading, setGoalLoading] = useState(false);
+  const [goalError, setGoalError] = useState(null);
+
+  const fetchGoals = useCallback(async () => {
+    setGoalLoading(true);
+    setGoalError(null);
+    try {
+      const res = await fetch('/api/goals');
+      const data = await safeJsonParse(res);
+      if (data.success) {
+        setGoalHierarchy(data.hierarchy || { visions: [], standaloneObjectives: [], standaloneGoals: [] });
+        if (data.lifeAreas) setLifeAreas(data.lifeAreas);
+      }
+    } catch (e) {
+      console.error('[Goal Fetch Error]:', e.message);
+      setGoalError(e.message);
+    } finally {
+      setGoalLoading(false);
+    }
+  }, []);
+
+  const fetchLifeAreas = useCallback(async () => {
+    try {
+      const res = await fetch('/api/goals/life-areas');
+      const data = await safeJsonParse(res);
+      if (data.success && data.lifeAreas) {
+        setLifeAreas(data.lifeAreas);
+      }
+    } catch (e) {
+      console.error('[Life Areas Fetch Error]:', e.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchGoals();
+      fetchLifeAreas();
+    }
+  }, [user, fetchGoals, fetchLifeAreas]);
+
+  const createGoal = async (payload) => {
+    try {
+      const res = await fetch('/api/goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await safeJsonParse(res);
+      if (data.success) {
+        await fetchGoals();
+        return data.goal;
+      }
+    } catch (e) {
+      console.error('[Create Goal Error]:', e.message);
+      throw e;
+    }
+  };
+
+  const updateGoal = async (id, payload) => {
+    try {
+      const res = await fetch(`/api/goals/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await safeJsonParse(res);
+      if (data.success) {
+        await fetchGoals();
+        return data.goal;
+      }
+    } catch (e) {
+      console.error('[Update Goal Error]:', e.message);
+      throw e;
+    }
+  };
+
+  const deleteGoal = async (id) => {
+    try {
+      const res = await fetch(`/api/goals/${id}`, { method: 'DELETE' });
+      const data = await safeJsonParse(res);
+      if (data.success) {
+        await fetchGoals();
+        return true;
+      }
+    } catch (e) {
+      console.error('[Delete Goal Error]:', e.message);
+      throw e;
+    }
+  };
+
+  const createMilestone = async (goalId, payload) => {
+    try {
+      const res = await fetch(`/api/goals/${goalId}/milestones`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await safeJsonParse(res);
+      if (data.success) {
+        await fetchGoals();
+        return data;
+      }
+    } catch (e) {
+      console.error('[Create Milestone Error]:', e.message);
+      throw e;
+    }
+  };
+
+  const updateMilestone = async (goalId, milestoneId, payload) => {
+    try {
+      const res = await fetch(`/api/goals/${goalId}/milestones/${milestoneId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await safeJsonParse(res);
+      if (data.success) {
+        await fetchGoals();
+        return data;
+      }
+    } catch (e) {
+      console.error('[Update Milestone Error]:', e.message);
+      throw e;
+    }
+  };
+
+  const toggleMilestone = async (goalId, milestoneId) => {
+    try {
+      const res = await fetch(`/api/goals/${goalId}/milestones/${milestoneId}/toggle`, {
+        method: 'POST'
+      });
+      const data = await safeJsonParse(res);
+      if (data.success) {
+        await fetchGoals();
+        return data;
+      }
+    } catch (e) {
+      console.error('[Toggle Milestone Error]:', e.message);
+      throw e;
+    }
+  };
+
+  const deleteMilestone = async (goalId, milestoneId) => {
+    try {
+      const res = await fetch(`/api/goals/${goalId}/milestones/${milestoneId}`, { method: 'DELETE' });
+      const data = await safeJsonParse(res);
+      if (data.success) {
+        await fetchGoals();
+        return true;
+      }
+    } catch (e) {
+      console.error('[Delete Milestone Error]:', e.message);
+      throw e;
+    }
+  };
+
+  // Adaptation & Capacity Management State
+  const [adaptationState, setAdaptationState] = useState({
+    capacityMode: 'NORMAL',
+    availableMinutes: null,
+    adaptedPlan: null,
+    rawCompliance: 0,
+    adaptedCompliance: 0,
+    adaptationHistory: []
+  });
+  const [adaptationLoading, setAdaptationLoading] = useState(false);
+  const [adaptationError, setAdaptationError] = useState(null);
+
+  const fetchAdaptation = useCallback(async (dateStr) => {
+    const targetDate = dateStr || selectedDate || getTodayStr();
+    setAdaptationLoading(true);
+    setAdaptationError(null);
+    try {
+      const res = await fetch(`/api/dashboard/adaptation?date=${targetDate}`);
+      const data = await safeJsonParse(res);
+      if (data.success) {
+        setAdaptationState(data);
+        return data;
+      }
+    } catch (e) {
+      console.error('[Fetch Adaptation Error]:', e.message);
+      setAdaptationError(e.message);
+    } finally {
+      setAdaptationLoading(false);
+    }
+  }, [selectedDate]);
+
+  const setCapacityMode = async (dateStr, capacityMode, availableMinutes, reason) => {
+    const targetDate = dateStr || selectedDate || getTodayStr();
+    setAdaptationLoading(true);
+    setAdaptationError(null);
+    try {
+      const res = await fetch('/api/dashboard/capacity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: targetDate,
+          capacityMode,
+          availableMinutes: availableMinutes !== undefined && availableMinutes !== null && availableMinutes !== '' ? Number(availableMinutes) : null,
+          reason
+        })
+      });
+      const data = await safeJsonParse(res);
+      if (data.success) {
+        setAdaptationState(data);
+        await fetchHistoryForDate(targetDate);
+        return data;
+      }
+    } catch (e) {
+      console.error('[Set Capacity Mode Error]:', e.message);
+      setAdaptationError(e.message);
+      throw e;
+    } finally {
+      setAdaptationLoading(false);
+    }
+  };
+
+  const rescheduleTask = async (sourceTaskExecutionId, targetDate) => {
+    if (!sourceTaskExecutionId || !targetDate) {
+      throw new Error('Missing sourceTaskExecutionId or targetDate');
+    }
+    setAdaptationLoading(true);
+    setAdaptationError(null);
+    try {
+      const res = await fetch('/api/dashboard/reschedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceTaskExecutionId, targetDate })
+      });
+      const data = await safeJsonParse(res);
+      if (data.success) {
+        const currentDate = selectedDate || getTodayStr();
+        await fetchAdaptation(currentDate);
+        await fetchHistoryForDate(currentDate);
+        await fetchHistoryForDate(targetDate);
+        return data;
+      }
+    } catch (e) {
+      console.error('[Reschedule Task Error]:', e.message);
+      setAdaptationError(e.message);
+      throw e;
+    } finally {
+      setAdaptationLoading(false);
+    }
+  };
+
+  const createTaskMapping = async (goalId, payload) => {
+    try {
+      const res = await fetch(`/api/goals/${goalId}/task-mappings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await safeJsonParse(res);
+      if (data.success) {
+        await fetchGoals();
+        return data;
+      }
+    } catch (e) {
+      console.error('[Create Task Mapping Error]:', e.message);
+      throw e;
+    }
+  };
+
+  const deleteTaskMapping = async (goalId, mappingId) => {
+    try {
+      const res = await fetch(`/api/goals/${goalId}/task-mappings/${mappingId}`, { method: 'DELETE' });
+      const data = await safeJsonParse(res);
+      if (data.success) {
+        await fetchGoals();
+        return true;
+      }
+    } catch (e) {
+      console.error('[Delete Task Mapping Error]:', e.message);
+      throw e;
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       user,
@@ -862,7 +1143,28 @@ export const AppProvider = ({ children }) => {
       updateDataEngState,
       addDataEngLog,
       exportData,
-      importData
+      importData,
+      goalHierarchy,
+      lifeAreas,
+      goalLoading,
+      goalError,
+      fetchGoals,
+      fetchLifeAreas,
+      createGoal,
+      updateGoal,
+      deleteGoal,
+      createMilestone,
+      updateMilestone,
+      toggleMilestone,
+      deleteMilestone,
+      createTaskMapping,
+      deleteTaskMapping,
+      adaptationState,
+      adaptationLoading,
+      adaptationError,
+      fetchAdaptation,
+      setCapacityMode,
+      rescheduleTask
     }}>
       {children}
     </AppContext.Provider>

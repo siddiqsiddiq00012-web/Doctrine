@@ -1,10 +1,19 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { db } from '../db/index.js';
-import { dailyExecutions, taskExecutions, dailySummaries, weeklyReviews, deLearningSessions, resourceStock } from '../db/schema.js';
-import { eq, and, desc } from 'drizzle-orm';
+import { dailyExecutions, taskExecutions, dailyAdaptations, goals, goalTaskMappings, dailySummaries, weeklyReviews, deLearningSessions, resourceStock } from '../db/schema.js';
+import { eq, and, desc, asc } from 'drizzle-orm';
 import { WEEKLY_DOCTRINE, INITIAL_INVENTORY } from '../../src/data/doctrineData.js';
 import { calculateFailurePatterns } from '../services/failurePatternService.js';
+import { cryptoNative } from '../utils/crypto.js';
+import {
+  SUPPORTED_CAPACITY_MODES,
+  MAX_CARRYOVER_CHAIN_DEPTH,
+  adaptDailyPlan,
+  calculateComplianceMetrics,
+  validateTaskDeferral,
+  determineCarryoverTarget
+} from '../services/adaptiveExecutionService.js';
 
 const router = Router();
 
@@ -440,6 +449,343 @@ router.get(['/', ''], requireAuth, async (req, res) => {
   } catch (error) {
     console.error('[Dashboard API] Fatal Error:', error);
     res.status(500).json({ error: 'Failed to retrieve dashboard data', details: error.message });
+  }
+});
+
+/**
+ * Idempotent Helper: Ensures daily_executions and task_executions records exist for (userId, dateStr)
+ */
+export async function getOrCreateDailyExecution(userId, dateStr) {
+  const [existing] = await db
+    .select()
+    .from(dailyExecutions)
+    .where(and(eq(dailyExecutions.userId, userId), eq(dailyExecutions.date, dateStr)))
+    .limit(1);
+
+  if (existing) {
+    const tasks = await db
+      .select()
+      .from(taskExecutions)
+      .where(eq(taskExecutions.dailyExecutionId, existing.id));
+    return { execution: existing, tasks };
+  }
+
+  const parts = dateStr.split('-').map(Number);
+  const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+  const dayNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+  const dayOfWeek = dayNames[dateObj.getDay()] || 'MONDAY';
+
+  const newExecutionId = cryptoNative.randomUUID();
+  const nowIso = new Date().toISOString();
+
+  await db.insert(dailyExecutions).values({
+    id: newExecutionId,
+    userId,
+    date: dateStr,
+    dayOfWeek,
+    currentCapacityMode: 'NORMAL',
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  });
+
+  const dayDoctrine = WEEKLY_DOCTRINE[dayOfWeek] || WEEKLY_DOCTRINE.MONDAY;
+  const initialTasks = [];
+  if (dayDoctrine && Array.isArray(dayDoctrine.timeBlocks)) {
+    for (const block of dayDoctrine.timeBlocks) {
+      initialTasks.push({
+        id: cryptoNative.randomUUID(),
+        dailyExecutionId: newExecutionId,
+        taskKey: block.id,
+        category: block.category || 'DOCTRINE',
+        taskName: block.activity,
+        status: 'SCHEDULED',
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      });
+    }
+  }
+
+  if (initialTasks.length > 0) {
+    await db.insert(taskExecutions).values(initialTasks);
+  }
+
+  const [newExec] = await db
+    .select()
+    .from(dailyExecutions)
+    .where(eq(dailyExecutions.id, newExecutionId))
+    .limit(1);
+
+  const tasks = await db
+    .select()
+    .from(taskExecutions)
+    .where(eq(taskExecutions.dailyExecutionId, newExecutionId));
+
+  return { execution: newExec, tasks };
+}
+
+// GET /api/dashboard/adaptation?date=YYYY-MM-DD
+router.get('/adaptation', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const dateStr = (req.query.date && typeof req.query.date === 'string' && req.query.date.match(/^\d{4}-\d{2}-\d{2}$/))
+      ? req.query.date
+      : getTodayISO();
+
+    const { execution, tasks } = await getOrCreateDailyExecution(userId, dateStr);
+
+    const history = await db
+      .select()
+      .from(dailyAdaptations)
+      .where(and(eq(dailyAdaptations.userId, userId), eq(dailyAdaptations.date, dateStr)))
+      .orderBy(asc(dailyAdaptations.createdAt));
+
+    const userMappings = await db.select().from(goalTaskMappings).where(eq(goalTaskMappings.userId, userId));
+    const userGoals = await db.select().from(goals).where(and(eq(goals.userId, userId), eq(goals.status, 'ACTIVE')));
+
+    const adaptedPlan = adaptDailyPlan({
+      tasks,
+      capacityMode: execution.currentCapacityMode,
+      availableMinutes: history.length > 0 ? history[history.length - 1].availableMinutes : null,
+      goalMappings: userMappings,
+      activeGoals: userGoals
+    });
+
+    const compliance = calculateComplianceMetrics({
+      plannedTasks: tasks,
+      essentialTaskKeys: adaptedPlan.essentialTaskKeys
+    });
+
+    res.json({
+      success: true,
+      date: dateStr,
+      capacityMode: execution.currentCapacityMode,
+      availableMinutes: adaptedPlan.availableMinutes,
+      adaptedPlan,
+      rawCompliance: compliance.rawCompliance,
+      adaptedCompliance: compliance.adaptedCompliance,
+      adaptationHistory: history
+    });
+  } catch (err) {
+    console.error('[Dashboard Adaptation GET] Error:', err);
+    res.status(500).json({ error: 'Failed to retrieve adaptation state', details: err.message });
+  }
+});
+
+// POST /api/dashboard/capacity
+router.post('/capacity', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { date, capacityMode, availableMinutes, reason } = req.body || {};
+
+    if (!date || typeof date !== 'string' || !date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return res.status(400).json({ error: 'Invalid or missing date. Expected YYYY-MM-DD format.' });
+    }
+
+    if (!SUPPORTED_CAPACITY_MODES.has(capacityMode)) {
+      return res.status(400).json({ error: `Invalid capacityMode. Supported modes: ${Array.from(SUPPORTED_CAPACITY_MODES).join(', ')}` });
+    }
+
+    let parsedAvailableMins = null;
+    if (availableMinutes !== undefined && availableMinutes !== null) {
+      const mins = Number(availableMinutes);
+      if (!Number.isInteger(mins) || mins < 0) {
+        return res.status(400).json({ error: 'availableMinutes must be a non-negative integer.' });
+      }
+      parsedAvailableMins = mins;
+    }
+
+    const safeReason = (typeof reason === 'string' ? reason.substring(0, 255) : '');
+
+    const { execution, tasks } = await getOrCreateDailyExecution(userId, date);
+
+    // Update current_capacity_mode on daily_executions
+    await db.update(dailyExecutions)
+      .set({ currentCapacityMode: capacityMode, updatedAt: new Date().toISOString() })
+      .where(eq(dailyExecutions.id, execution.id));
+
+    // Append to daily_adaptations history log
+    const adaptationId = cryptoNative.randomUUID();
+    const nowIso = new Date().toISOString();
+
+    await db.insert(dailyAdaptations).values({
+      id: adaptationId,
+      userId,
+      dailyExecutionId: execution.id,
+      date,
+      capacityMode,
+      availableMinutes: parsedAvailableMins,
+      reason: safeReason,
+      createdAt: nowIso
+    });
+
+    const history = await db
+      .select()
+      .from(dailyAdaptations)
+      .where(and(eq(dailyAdaptations.userId, userId), eq(dailyAdaptations.date, date)))
+      .orderBy(asc(dailyAdaptations.createdAt));
+
+    const userMappings = await db.select().from(goalTaskMappings).where(eq(goalTaskMappings.userId, userId));
+    const userGoals = await db.select().from(goals).where(and(eq(goals.userId, userId), eq(goals.status, 'ACTIVE')));
+
+    const adaptedPlan = adaptDailyPlan({
+      tasks,
+      capacityMode,
+      availableMinutes: parsedAvailableMins,
+      goalMappings: userMappings,
+      activeGoals: userGoals
+    });
+
+    const compliance = calculateComplianceMetrics({
+      plannedTasks: tasks,
+      essentialTaskKeys: adaptedPlan.essentialTaskKeys
+    });
+
+    res.json({
+      success: true,
+      date,
+      capacityMode,
+      availableMinutes: parsedAvailableMins,
+      adaptedPlan,
+      rawCompliance: compliance.rawCompliance,
+      adaptedCompliance: compliance.adaptedCompliance,
+      adaptationHistory: history
+    });
+  } catch (err) {
+    console.error('[Dashboard Capacity POST] Error:', err);
+    res.status(500).json({ error: 'Failed to update capacity mode', details: err.message });
+  }
+});
+
+// POST /api/dashboard/reschedule
+router.post('/reschedule', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { sourceTaskExecutionId, targetDate } = req.body || {};
+
+    if (!sourceTaskExecutionId || typeof sourceTaskExecutionId !== 'string') {
+      return res.status(400).json({ error: 'Missing sourceTaskExecutionId.' });
+    }
+
+    if (!targetDate || typeof targetDate !== 'string' || !targetDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return res.status(400).json({ error: 'Invalid or missing targetDate. Expected YYYY-MM-DD format.' });
+    }
+
+    // 1. Locate source task and verify ownership
+    const [sourceTask] = await db.select().from(taskExecutions).where(eq(taskExecutions.id, sourceTaskExecutionId)).limit(1);
+    if (!sourceTask) {
+      return res.status(404).json({ error: 'Source task execution not found.' });
+    }
+
+    const [sourceDailyExec] = await db.select().from(dailyExecutions).where(eq(dailyExecutions.id, sourceTask.dailyExecutionId)).limit(1);
+    if (!sourceDailyExec || sourceDailyExec.userId !== userId) {
+      return res.status(403).json({ error: 'Unauthorized access to task execution.' });
+    }
+
+    // 2. Status checks: Reject completed tasks & same-day deferrals
+    if (sourceTask.status === 'COMPLETED') {
+      return res.status(400).json({ error: 'Completed tasks cannot be deferred.' });
+    }
+
+    if (sourceDailyExec.date === targetDate) {
+      return res.status(400).json({ error: 'Same-day deferral is rejected. Target date must differ from source date.' });
+    }
+
+    // Idempotency Check: If source task is ALREADY SKIPPED and deferredToDate === targetDate, return success idempotently
+    if (sourceTask.status === 'SKIPPED' && sourceTask.deferredToDate === targetDate) {
+      const { execution: targetExec, tasks: targetTasks } = await getOrCreateDailyExecution(userId, targetDate);
+      const targetTask = targetTasks.find(t => t.taskKey === sourceTask.taskKey || t.sourceTaskExecutionId === sourceTask.id);
+      return res.json({
+        success: true,
+        idempotent: true,
+        mode: targetTask ? 'REUSE_EXISTING' : 'CREATE_CARRYOVER',
+        sourceTaskId: sourceTask.id,
+        targetDate,
+        targetExecutionId: targetExec.id
+      });
+    }
+
+    // 3. Lineage depth & cycle check
+    let currentId = sourceTask.sourceTaskExecutionId;
+    let depth = 1;
+    const visited = new Set([sourceTask.id]);
+    while (currentId) {
+      if (visited.has(currentId)) {
+        return res.status(400).json({ error: 'Lineage cycle detected in deferral chain.' });
+      }
+      visited.add(currentId);
+      depth++;
+      if (depth >= MAX_CARRYOVER_CHAIN_DEPTH) {
+        return res.status(400).json({ error: `Maximum carryover chain depth (${MAX_CARRYOVER_CHAIN_DEPTH}) reached. Task must be executed or marked missed.` });
+      }
+      const [parent] = await db.select().from(taskExecutions).where(eq(taskExecutions.id, currentId)).limit(1);
+      currentId = parent?.sourceTaskExecutionId || null;
+    }
+
+    // 4. Validate deferral domain rules
+    const domainCheck = validateTaskDeferral({
+      sourceTask: { ...sourceTask, date: sourceDailyExec.date },
+      targetDate,
+      sourceUserId: userId,
+      targetUserId: userId,
+      lineageDepth: depth
+    });
+
+    if (!domainCheck.isValid) {
+      return res.status(400).json({ error: domainCheck.reason });
+    }
+
+    // 5. Ensure target daily execution and task list exists
+    const { execution: targetExec, tasks: targetTasks } = await getOrCreateDailyExecution(userId, targetDate);
+
+    const carryoverDecision = determineCarryoverTarget({
+      targetDayExecutions: targetTasks,
+      taskKey: sourceTask.taskKey,
+      sourceTaskId: sourceTask.id
+    });
+
+    const nowIso = new Date().toISOString();
+
+    // 6. Execute atomic update
+    // Update source task -> status = 'SKIPPED', deferredToDate = targetDate
+    await db.update(taskExecutions)
+      .set({ status: 'SKIPPED', deferredToDate: targetDate, updatedAt: nowIso })
+      .where(eq(taskExecutions.id, sourceTask.id));
+
+    let targetExecutionId = carryoverDecision.targetExecutionId;
+
+    if (carryoverDecision.mode === 'CREATE_CARRYOVER') {
+      // Check if carryover row already exists for target day to prevent duplicate insertion
+      const existingCarryover = targetTasks.find(t => t.sourceTaskExecutionId === sourceTask.id);
+      if (existingCarryover) {
+        targetExecutionId = existingCarryover.id;
+      } else {
+        const newCarryoverId = cryptoNative.randomUUID();
+        await db.insert(taskExecutions).values({
+          id: newCarryoverId,
+          dailyExecutionId: targetExec.id,
+          taskKey: carryoverDecision.taskKey,
+          category: sourceTask.category,
+          taskName: `${sourceTask.taskName || sourceTask.taskKey} (Carryover)`,
+          status: 'SCHEDULED',
+          sourceTaskExecutionId: sourceTask.id,
+          createdAt: nowIso,
+          updatedAt: nowIso
+        });
+        targetExecutionId = newCarryoverId;
+      }
+    }
+
+    res.json({
+      success: true,
+      mode: carryoverDecision.mode,
+      sourceTaskId: sourceTask.id,
+      targetDate,
+      targetExecutionId: targetExec.id,
+      targetTaskId: targetExecutionId
+    });
+  } catch (err) {
+    console.error('[Dashboard Reschedule POST] Error:', err);
+    res.status(500).json({ error: 'Failed to reschedule task', details: err.message });
   }
 });
 

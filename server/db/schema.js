@@ -64,6 +64,7 @@ export const dailyExecutions = sqliteTable('daily_executions', {
   waterLiters: real('water_liters').default(0).notNull(),
   tahajjud: integer('tahajjud', { mode: 'boolean' }).default(false).notNull(),
   notes: text('notes').default('').notNull(),
+  currentCapacityMode: text('current_capacity_mode').default('NORMAL').notNull(), // 'NORMAL' | 'MINIMUM_VIABLE' | 'EXAM_COMPRESSED' | 'REST_RECOVERY'
   createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
   updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
 }, (table) => ({
@@ -81,11 +82,29 @@ export const taskExecutions = sqliteTable('task_executions', {
   taskName: text('task_name'),
   status: text('status').default('SCHEDULED').notNull(), // SCHEDULED | COMPLETED | SKIPPED | MISSED
   completedAt: text('completed_at'),
+  deferredToDate: text('deferred_to_date'), // YYYY-MM-DD target date for task carryover/rescheduling
+  sourceTaskExecutionId: text('source_task_execution_id').references(() => taskExecutions.id, { onDelete: 'set null' }),
   createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
   updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
 }, (table) => ({
   dailyExecIdx: index('task_executions_daily_exec_idx').on(table.dailyExecutionId),
   taskKeyIdx: uniqueIndex('task_executions_key_idx').on(table.dailyExecutionId, table.taskKey),
+  sourceTaskIdx: index('task_executions_source_task_idx').on(table.sourceTaskExecutionId),
+}));
+
+// Daily Adaptations Table (Section 3: Audit Log of Intra-Day Capacity Adaptations)
+export const dailyAdaptations = sqliteTable('daily_adaptations', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  dailyExecutionId: text('daily_execution_id').notNull().references(() => dailyExecutions.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(), // YYYY-MM-DD
+  capacityMode: text('capacity_mode').notNull(), // 'NORMAL' | 'MINIMUM_VIABLE' | 'EXAM_COMPRESSED' | 'REST_RECOVERY'
+  availableMinutes: integer('available_minutes'),
+  reason: text('reason').default(''),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userDateIdx: index('daily_adaptations_user_date_idx').on(table.userId, table.date),
+  dailyExecIdx: index('daily_adaptations_daily_exec_idx').on(table.dailyExecutionId),
 }));
 
 // Daily Summaries Table (Feature 2: 10:00 PM AI Daily Summary Persistence)
@@ -358,3 +377,74 @@ export const financialPreferences = sqliteTable('financial_preferences', {
   updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
 });
 
+// Life Areas Table (Configurable & User-Scoped Life Categories)
+export const lifeAreas = sqliteTable('life_areas', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  key: text('key').notNull(),
+  name: text('name').notNull(),
+  color: text('color'),
+  icon: text('icon'),
+  sortOrder: integer('sort_order').default(1).notNull(),
+  isSystemDefault: integer('is_system_default', { mode: 'boolean' }).default(false).notNull(),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userKeyIdx: uniqueIndex('life_areas_user_key_idx').on(table.userId, table.key),
+}));
+
+// Goals Table (Unified Vision -> Objective -> Goal Hierarchy)
+export const goals = sqliteTable('goals', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  parentId: text('parent_id').references(() => goals.id, { onDelete: 'set null' }),
+  lifeAreaId: text('life_area_id').references(() => lifeAreas.id, { onDelete: 'set null' }),
+  level: text('level').default('GOAL').notNull(), // 'VISION' | 'OBJECTIVE' | 'GOAL'
+  title: text('title').notNull(),
+  description: text('description').default('').notNull(),
+  status: text('status').default('PLANNED').notNull(), // 'PLANNED' | 'ACTIVE' | 'AT_RISK' | 'COMPLETED' | 'ABANDONED'
+  priority: integer('priority').default(1).notNull(),
+  targetDate: text('target_date'), // YYYY-MM-DD
+  financialGoalId: text('financial_goal_id').references(() => financialGoals.id, { onDelete: 'set null' }),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userStatusIdx: index('goals_user_status_idx').on(table.userId, table.status),
+  userAreaIdx: index('goals_user_area_idx').on(table.userId, table.lifeAreaId),
+  parentIdx: index('goals_parent_idx').on(table.parentId),
+}));
+
+// Goal Milestones Table (Progress Checkpoints)
+export const goalMilestones = sqliteTable('goal_milestones', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  goalId: text('goal_id').notNull().references(() => goals.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  description: text('description').default('').notNull(),
+  targetValue: real('target_value').default(1).notNull(),
+  currentValue: real('current_value').default(0).notNull(),
+  isCompleted: integer('is_completed', { mode: 'boolean' }).default(false).notNull(),
+  completedAt: text('completed_at'),
+  dueDate: text('due_date'), // YYYY-MM-DD
+  sortOrder: integer('sort_order').default(1).notNull(),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  goalIdx: index('goal_milestones_goal_idx').on(table.goalId),
+  userIdx: index('goal_milestones_user_idx').on(table.userId),
+}));
+
+// Goal Task Mappings Table (Task Intent/Linkage to Existing Task Executions)
+export const goalTaskMappings = sqliteTable('goal_task_mappings', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  goalId: text('goal_id').notNull().references(() => goals.id, { onDelete: 'cascade' }),
+  milestoneId: text('milestone_id').references(() => goalMilestones.id, { onDelete: 'cascade' }),
+  taskKey: text('task_key').notNull(),
+  category: text('category'),
+  weight: integer('weight').default(1).notNull(),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  goalTaskIdx: index('goal_task_mappings_goal_task_idx').on(table.goalId, table.taskKey),
+  milestoneIdx: index('goal_task_mappings_milestone_idx').on(table.milestoneId),
+  userTaskIdx: index('goal_task_mappings_user_task_idx').on(table.userId, table.taskKey),
+}));
