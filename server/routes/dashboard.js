@@ -14,6 +14,8 @@ import {
   validateTaskDeferral,
   determineCarryoverTarget
 } from '../services/adaptiveExecutionService.js';
+import { getUserUnifiedProgressOverview } from '../services/adherenceEngine.js';
+import { getStructuredIntelligence, INTELLIGENCE_MODES } from '../services/intelligenceService.js';
 
 const router = Router();
 
@@ -786,6 +788,34 @@ router.post('/reschedule', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('[Dashboard Reschedule POST] Error:', err);
     res.status(500).json({ error: 'Failed to reschedule task', details: err.message });
+  }
+});
+
+// GET /api/dashboard/adherence-overview — Authoritative Progress & Adherence Overview
+router.get('/adherence-overview', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const daysWindow = req.query.days ? Math.min(90, Math.max(7, Number(req.query.days))) : 30;
+    const overview = await getUserUnifiedProgressOverview(db, userId, daysWindow);
+
+    res.json({ success: true, overview });
+  } catch (err) {
+    console.error('[Dashboard Adherence Overview] Error:', err);
+    res.status(500).json({ error: 'Failed to retrieve adherence overview', details: err.message });
+  }
+});
+
+// GET /api/dashboard/intelligence — Structured Intelligence & Decision Overview
+router.get('/intelligence', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const mode = req.query.mode || INTELLIGENCE_MODES.DAILY_REASONING;
+    const intelligence = await getStructuredIntelligence(db, userId, mode);
+
+    res.json({ success: true, intelligence });
+  } catch (err) {
+    console.error('[Dashboard Intelligence GET] Error:', err);
+    res.status(500).json({ error: 'Failed to retrieve structured intelligence', details: err.message });
   }
 });
 

@@ -14,6 +14,15 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 export function getDbConfig(env = process.env) {
   const isVercel = Boolean(env.VERCEL || env.VERCEL_ENV);
   const isProduction = isVercel || env.NODE_ENV === 'production';
+  let rawPostgresUrl = env.POSTGRES_URL || (env.DATABASE_URL && (env.DATABASE_URL.startsWith('postgres://') || env.DATABASE_URL.startsWith('postgresql://') || env.DATABASE_URL.startsWith('postgresql+psycopg://')) ? env.DATABASE_URL : null);
+
+  if (rawPostgresUrl) {
+    if (rawPostgresUrl.startsWith('postgresql+psycopg://')) {
+      rawPostgresUrl = rawPostgresUrl.replace('postgresql+psycopg://', 'postgresql://');
+    }
+    return { type: 'postgres', postgresUrl: rawPostgresUrl, isProduction };
+  }
+
   const rawTursoUrl = env.TURSO_DATABASE_URL || (env.DATABASE_URL && (env.DATABASE_URL.startsWith('libsql://') || env.DATABASE_URL.startsWith('https://')) ? env.DATABASE_URL : null);
   const authToken = env.TURSO_AUTH_TOKEN;
 
@@ -41,7 +50,7 @@ export function getDbConfig(env = process.env) {
 
   const dbPath = isVercel
     ? '/tmp/doctrine.db'
-    : (env.DATABASE_URL && !env.DATABASE_URL.startsWith('libsql') && !env.DATABASE_URL.startsWith('http') ? env.DATABASE_URL : 'doctrine.db');
+    : (env.DATABASE_URL && !env.DATABASE_URL.startsWith('libsql') && !env.DATABASE_URL.startsWith('http') && !env.DATABASE_URL.startsWith('postgres') ? env.DATABASE_URL : 'doctrine.db');
 
   return { type: 'sqlite', dbPath, isProduction };
 }
@@ -408,11 +417,107 @@ function initSqliteSchema(sqliteDb) {
       );
       CREATE INDEX IF NOT EXISTS daily_adaptations_user_date_idx ON daily_adaptations(user_id, date);
       CREATE INDEX IF NOT EXISTS daily_adaptations_daily_exec_idx ON daily_adaptations(daily_execution_id);
+
+      CREATE TABLE IF NOT EXISTS tasks (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        task_key TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        category TEXT NOT NULL,
+        default_priority INTEGER NOT NULL,
+        default_duration_minutes INTEGER NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, task_key)
+      );
+      CREATE INDEX IF NOT EXISTS tasks_user_idx ON tasks(user_id);
+
+      CREATE TABLE IF NOT EXISTS schedules (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        is_default INTEGER NOT NULL DEFAULT 0,
+        active_from_date TEXT,
+        active_to_date TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS schedules_user_idx ON schedules(user_id);
+
+      CREATE TABLE IF NOT EXISTS schedule_entries (
+        id TEXT PRIMARY KEY,
+        schedule_id TEXT NOT NULL REFERENCES schedules(id) ON DELETE CASCADE,
+        task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        timing_type TEXT NOT NULL,
+        recurrence_pattern TEXT NOT NULL,
+        day_of_week TEXT,
+        active_date TEXT,
+        start_minutes INTEGER,
+        end_minutes INTEGER,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS schedule_entries_sched_day_idx ON schedule_entries(schedule_id, day_of_week);
+      CREATE INDEX IF NOT EXISTS schedule_entries_task_idx ON schedule_entries(task_id);
+
+      CREATE TABLE IF NOT EXISTS task_resource_requirements (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        task_key TEXT NOT NULL,
+        task_id TEXT REFERENCES tasks(id) ON DELETE SET NULL,
+        resource_id TEXT NOT NULL,
+        quantity_consumed REAL NOT NULL,
+        unit TEXT NOT NULL,
+        is_optional INTEGER NOT NULL DEFAULT 0,
+        notes TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, task_key, resource_id)
+      );
+      CREATE INDEX IF NOT EXISTS task_res_req_user_task_idx ON task_resource_requirements(user_id, task_key);
+      CREATE INDEX IF NOT EXISTS task_res_req_user_resource_idx ON task_resource_requirements(user_id, resource_id);
+
+      CREATE TABLE IF NOT EXISTS domain_events (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        event_type TEXT NOT NULL,
+        source_type TEXT NOT NULL,
+        source_id TEXT,
+        payload TEXT NOT NULL,
+        correlation_id TEXT NOT NULL,
+        causation_id TEXT,
+        schema_version INTEGER NOT NULL DEFAULT 1,
+        status TEXT NOT NULL DEFAULT 'PUBLISHED',
+        occurred_at TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS domain_events_user_type_idx ON domain_events(user_id, event_type);
+      CREATE INDEX IF NOT EXISTS domain_events_user_corr_idx ON domain_events(user_id, correlation_id);
+      CREATE INDEX IF NOT EXISTS domain_events_user_occ_idx ON domain_events(user_id, occurred_at);
+
+      CREATE TABLE IF NOT EXISTS automation_processing_logs (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        event_id TEXT NOT NULL REFERENCES domain_events(id) ON DELETE CASCADE,
+        handler_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        error_details TEXT,
+        execution_duration_ms INTEGER NOT NULL DEFAULT 0,
+        processed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, event_id, handler_id)
+      );
+      CREATE INDEX IF NOT EXISTS auto_logs_user_event_idx ON automation_processing_logs(user_id, event_id);
     `);
     try { sqliteDb.exec('ALTER TABLE sessions ADD COLUMN sess TEXT;'); } catch (e) {}
     try { sqliteDb.exec("ALTER TABLE daily_executions ADD COLUMN current_capacity_mode TEXT NOT NULL DEFAULT 'NORMAL';"); } catch (e) {}
     try { sqliteDb.exec("ALTER TABLE task_executions ADD COLUMN deferred_to_date TEXT;"); } catch (e) {}
     try { sqliteDb.exec("ALTER TABLE task_executions ADD COLUMN source_task_execution_id TEXT REFERENCES task_executions(id) ON DELETE SET NULL;"); } catch (e) {}
+    try { sqliteDb.exec("ALTER TABLE task_executions ADD COLUMN task_id TEXT REFERENCES tasks(id) ON DELETE SET NULL;"); } catch (e) {}
+    try { sqliteDb.exec("ALTER TABLE task_executions ADD COLUMN schedule_entry_id TEXT REFERENCES schedule_entries(id) ON DELETE SET NULL;"); } catch (e) {}
+    try { sqliteDb.exec("CREATE INDEX IF NOT EXISTS task_executions_task_id_idx ON task_executions(task_id);"); } catch (e) {}
+    try { sqliteDb.exec("CREATE INDEX IF NOT EXISTS task_executions_sched_entry_idx ON task_executions(schedule_entry_id);"); } catch (e) {}
 
     // Idempotent default Life Areas seeder for all active users
     const seedDefaultLifeAreasForUser = (userId) => {
@@ -535,7 +640,28 @@ function initSqliteSchema(sqliteDb) {
 
 const config = getDbConfig(process.env);
 
-if (config.type === 'turso') {
+if (config.type === 'postgres') {
+  try {
+    const pg = await import('pg');
+    const { drizzle } = await import('drizzle-orm/node-postgres');
+    const schemaPg = await import('./schema.pg.js');
+    const pool = new pg.default.Pool({
+      connectionString: config.postgresUrl,
+    });
+    db = drizzle(pool, { schema: schemaPg });
+  } catch (err) {
+    if (config.isProduction) {
+      throw new Error(`[FATAL PRODUCTION DB ERROR] Failed to initialize PostgreSQL database client: ${err.message}`);
+    }
+    console.warn('[PostgreSQL Warning] Failed to initialize PostgreSQL client, falling back to local SQLite:', err.message);
+    const defaultDbPath = 'doctrine.db';
+    sqlite = new Database(defaultDbPath);
+    sqlite.pragma('foreign_keys = ON');
+    try { sqlite.pragma('journal_mode = WAL'); } catch (e) {}
+    initSqliteSchema(sqlite);
+    db = drizzle(sqlite, { schema });
+  }
+} else if (config.type === 'turso') {
   try {
     const { createClient } = await import('@libsql/client');
     const { drizzle } = await import('drizzle-orm/libsql');
@@ -552,12 +678,14 @@ if (config.type === 'turso') {
     const defaultDbPath = 'doctrine.db';
     sqlite = new Database(defaultDbPath);
     sqlite.pragma('foreign_keys = ON');
+    try { sqlite.pragma('journal_mode = WAL'); } catch (e) {}
     initSqliteSchema(sqlite);
     db = drizzle(sqlite, { schema });
   }
 } else {
   sqlite = new Database(config.dbPath);
   sqlite.pragma('foreign_keys = ON');
+  try { sqlite.pragma('journal_mode = WAL'); } catch (e) {}
   initSqliteSchema(sqlite);
   db = drizzle(sqlite, { schema });
 }

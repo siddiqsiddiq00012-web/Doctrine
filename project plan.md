@@ -1,473 +1,578 @@
-Yes. We should freeze the **Doctrine product blueprint first**, then use the existing ZIP as the implementation baseline and work through the blueprint **one feature at a time**.
+Below is the finalized blueprint. It is intentionally written as a **product + architecture contract**, not merely a feature wishlist.
 
-The key principle is:
-
-> **Doctrine is the product. Code is only the implementation mechanism. We do not allow the existing codebase to dictate what Doctrine becomes.**
-
-Below is the finalized master blueprint. **Authentication/login is intentionally excluded.**
-
-# DOCTRINE — MASTER PRODUCT BLUEPRINT
-
-## 0. Product Definition
-
-| Area | Final Direction |
-|---|---|
-| Product | Personal operating system for executing the user's Doctrine of Self-Mastery |
-| Primary purpose | Convert long-term goals and personal doctrine into daily executable actions, track execution, measure progress, and intelligently adapt the plan |
-| Philosophy | Doctrine → Plan → Action → Execution → Measurement → Review → Adaptation |
-| Primary environment during development | Localhost |
-| Production | Vercel + Turso |
-| Authentication | **EXCLUDED ENTIRELY FOR NOW** |
-| Primary frontend | React + JavaScript |
-| Primary backend | Node.js + Express |
-| Database | SQLite locally / Turso production |
-| ORM | Drizzle ORM |
-| Styling | Existing Doctrine UI system; preserve aesthetic consistency |
-| AI | Gemini-based intelligence layer |
-| ML | Primarily intelligent inference/recommendation systems rather than training a large custom model |
-| Architecture | Modular feature-oriented full-stack application |
-| Security principle | User-scoped data, validation, least privilege, server-authoritative decisions |
-| Financial precision | Integer Paise |
-| Production philosophy | Fail closed, persistent storage, deterministic business logic |
-
----
-
-# 1. CORE DOCTRINE ENGINE
-
-This is the heart of the application.
-
-### 1.1 Doctrine Definition
-
-The system must represent:
-
-- Life principles
-- Long-term vision
-- Major goals
-- Sub-goals
-- Areas of life
-- Priorities
-- Constraints
-- Rules
-- Non-negotiables
-- Habits
-- Daily responsibilities
-- Projects
-- Deadlines
-- Milestones
-
-### 1.2 Life Areas
-
-The architecture should support areas such as:
-
-- Physical transformation
-- Skin & grooming
-- Hair care
-- Fitness
-- Nutrition
-- Education
-- Career
-- Data Engineering
-- Programming
-- Blockchain
-- Projects
-- Finance
-- Trading
-- Relationships
-- Personal development
-- Recreation
-- Other user-defined areas
-
-The system should **not hard-code the user's entire life into application logic**.
-
-Life areas should be configurable.
-
----
-
-# 2. GOAL MANAGEMENT SYSTEM
-
-Doctrine needs a serious goal engine rather than a simple checklist.
-
-### Goal hierarchy
+You can save it as:
 
 ```text
-Vision
- └── Objective
-      └── Goal
-           └── Milestone
-                └── Task
-                     └── Execution
+blueprint.md
 ```
 
-Each goal should support:
+# DOCTRINE — FINAL PRODUCT & ENGINEERING BLUEPRINT
 
-- Name
-- Description
-- Area
-- Priority
-- Status
-- Start date
-- Target date
-- Desired outcome
-- Progress
-- Milestones
-- Dependencies
-- Related projects
-- Related habits
-- Related financial goals
-- Notes
-- Evidence
-- Review history
+**Version:** 1.0  
+**Status:** Final architectural direction  
+**Development mode:** Localhost-first  
+**Production deployment:** Deferred until the product is complete and production-audited  
+**Primary objective:** Build Doctrine as an automated personal operating system that minimizes manual tracking while maximizing useful understanding, consistency, resource management, and decision support.
 
-### Goal states
+---
+
+# 1. PRODUCT DEFINITION
+
+Doctrine is a **personal operating system and intelligent assistant** designed to solve four fundamental problems:
+
+1. Inconsistency.
+2. Lack of reliable progress tracking.
+3. Poor resource management.
+4. Excessive mental effort required to organize and monitor personal goals.
+
+Doctrine must not become another productivity application that requires the user to spend significant time maintaining it.
+
+The central principle is:
+
+> **Doctrine should automatically convert actions into traceable information and use that information to determine what matters next.**
+
+The user should primarily:
+
+- define goals,
+- establish important routines/plans,
+- perform actions,
+- confirm completion,
+- correct exceptions,
+- review important information.
+
+Doctrine should automatically handle the majority of:
+
+- tracking,
+- calculations,
+- resource consumption,
+- financial state updates,
+- progress calculations,
+- forecasting,
+- historical records,
+- consistency analysis,
+- decision preparation,
+- recommendations.
+
+---
+
+# 2. CORE PRODUCT PHILOSOPHY
+
+## 2.1 Automation over manual entry
+
+Doctrine must never ask the user to manually enter information that can be reliably inferred from an action already performed.
+
+Example:
+
+The user completes:
+
+> Morning Routine
+
+Doctrine should automatically record the known resource consumption associated with that routine.
+
+It should **not** subsequently ask:
+
+- Facewash used?
+- Banana consumed?
+- Milk consumed?
+- Oats consumed?
+
+unless the user indicates that actual consumption differed from the normal definition.
+
+---
+
+# 3. THE FUNDAMENTAL DOCTRINE LOOP
+
+The entire system revolves around:
 
 ```text
-PLANNED
-ACTIVE
-PAUSED
-AT_RISK
-COMPLETED
-ABANDONED
+PLAN
+  ↓
+ACT
+  ↓
+AUTOMATICALLY RECORD
+  ↓
+MEASURE
+  ↓
+UNDERSTAND
+  ↓
+DECIDE
+  ↓
+ADJUST
+  ↓
+PLAN AGAIN
 ```
 
----
-
-# 3. DAILY EXECUTION ENGINE
-
-The application must answer:
-
-> **"What should I do now?"**
-
-This is one of Doctrine's most important features.
-
-The engine considers:
-
-- Current time
-- Current day
-- User schedule
-- Active goals
-- Priority
-- Deadlines
-- Missed tasks
-- Dependencies
-- Available time
-- Previous execution
-- Recovery requirements
-- Doctrine rules
-- Current financial constraints
-
-Then produces the appropriate execution queue.
-
-### Example
+More technically:
 
 ```text
-CURRENT TIME
-     ↓
-DAY CONTEXT
-     ↓
-ACTIVE DOCTRINE
-     ↓
-PRIORITIES
-     ↓
-DEADLINES
-     ↓
-PREVIOUS EXECUTION
-     ↓
-AVAILABLE TIME
-     ↓
-CURRENT STATE
-     ↓
-TODAY'S EXECUTION PLAN
+User Action
+    ↓
+Execution Event
+    ↓
+Automatic Side Effects
+    ├── Progress update
+    ├── Resource consumption
+    ├── Financial update
+    ├── Goal progress
+    ├── Historical record
+    └── Forecast recalculation
+    ↓
+Current State
+    ↓
+Analysis
+    ↓
+Decision Engine
+    ↓
+Recommendation
+    ↓
+User Action
 ```
 
----
-
-# 4. TIME / SCHEDULE ENGINE
-
-Support:
-
-- Daily schedules
-- Weekly schedules
-- Time blocks
-- Recurring tasks
-- Flexible tasks
-- Fixed tasks
-- College/work schedules
-- Travel blocks
-- Workout blocks
-- Study blocks
-- Project blocks
-- Recovery blocks
-
-### Important distinction
-
-A **schedule** says:
-
-> when something should happen.
-
-A **task** says:
-
-> what must happen.
-
-An **execution record** says:
-
-> whether it actually happened.
-
-These must remain separate.
+This loop is the heart of Doctrine.
 
 ---
 
-# 5. TASK ENGINE
+# 4. DESIGN PRINCIPLE: DEEP SYSTEM, SIMPLE INTERFACE
 
-Tasks should support:
+Doctrine may contain sophisticated backend systems, but the user interface must remain simple.
 
-- One-time tasks
-- Recurring tasks
-- Scheduled tasks
-- Flexible tasks
-- Priority
-- Deadline
-- Estimated duration
-- Actual duration
-- Dependencies
-- Goal association
-- Project association
-- Area association
-- Completion
-- Skipping
-- Deferral
-- Failure reason
-- Notes
-- Execution history
+The user should not need to understand:
 
-### Task states
+- event processors,
+- database transactions,
+- resource ledgers,
+- forecasting algorithms,
+- financial calculations,
+- machine-learning models,
+- AI context construction,
+- background jobs.
+
+The interface should communicate:
+
+- what is happening,
+- what matters,
+- what changed,
+- what needs attention,
+- what should happen next.
+
+---
+
+# 5. PRIMARY USER EXPERIENCE
+
+Doctrine should have a small number of primary experiences.
+
+## 5.1 Home / Today
+
+The primary screen.
+
+It should answer:
+
+> **What matters today?**
+
+It should show:
+
+- current date,
+- current priority,
+- today's important actions,
+- completion status,
+- critical alerts,
+- financial summary,
+- resource alerts,
+- goal status,
+- consistency status.
+
+It should not display every available database field.
+
+---
+
+# 6. "WHAT NOW?" ENGINE
+
+This is one of the most important systems in Doctrine.
+
+The user should be able to ask:
+
+> **What now?**
+
+Doctrine evaluates:
 
 ```text
-PENDING
-ACTIVE
-COMPLETED
-SKIPPED
-DEFERRED
-BLOCKED
-CANCELLED
+Current time
++
+Day
++
+Schedule
++
+Goals
++
+Priority
++
+Deadlines
++
+Incomplete actions
++
+Historical adherence
++
+Financial state
++
+Resource state
++
+Upcoming obligations
++
+Current constraints
 ```
 
----
+It then determines the highest-value feasible next action.
 
-# 6. HABIT SYSTEM
-
-Doctrine should distinguish habits from ordinary tasks.
-
-Track:
-
-- Daily habits
-- Weekly habits
-- Frequency
-- Streak
-- Adherence
-- Missed days
-- Recovery
-- Historical performance
-- Habit difficulty
-- Goal relationship
-
-### Habit intelligence
-
-Eventually calculate:
+Example:
 
 ```text
-Adherence %
-Consistency
-Best streak
-Current streak
-Failure frequency
-Recovery time
-Time-of-day performance
+WHAT NOW
+
+Data Engineering
+45 minutes
+
+Reason:
+Priority-1 milestone is incomplete and
+your historical completion rate drops
+after 9 PM.
 ```
 
----
-
-# 7. PHYSICAL TRANSFORMATION SYSTEM
-
-This is a major Doctrine module.
-
-## Fitness
-
-Support:
-
-- Workout plans
-- Workout sessions
-- Exercises
-- Sets
-- Repetitions
-- Weight
-- Duration
-- Rest
-- Workout completion
-- Progressive overload
-- Historical performance
-
-## Body metrics
-
-Track:
-
-- Weight
-- Height
-- Measurements
-- Transformation milestones
-- Historical records
-
-## Progress photos
-
-Support:
-
-- Physique
-- Face
-- Hair
-- Weekly comparison
-- Side-by-side comparison
-- Historical storage
-- Week-over-week deltas
-
-Existing Smart Sunday architecture should remain compatible.
+The engine should prioritize actions rather than merely display them.
 
 ---
 
-# 8. SKINCARE & GROOMING ENGINE
+# 7. GOAL SYSTEM
 
-Support:
+Goals represent desired outcomes.
 
-- Skincare routines
-- Morning routines
-- Evening routines
-- Product usage
-- Grooming tasks
-- Hair-care routines
-- Execution tracking
-- Historical adherence
+A goal should contain:
 
-Important architectural rule:
+- name,
+- description,
+- priority,
+- target date,
+- optional measurable target,
+- status,
+- milestones,
+- associated plans,
+- associated actions,
+- progress evidence,
+- dependencies,
+- financial requirements where applicable.
 
-> Doctrine tracks and executes the user's predefined routine; it does not become a medical diagnosis system.
-
-The existing constraint excluding medical diagnosis should remain.
-
----
-
-# 9. NUTRITION SYSTEM
-
-Support:
-
-- Daily calorie target
-- Protein target
-- Carbohydrate target
-- Fat target
-- Meals
-- Food items
-- Quantity
-- Nutritional values
-- Daily totals
-- Target comparison
-- Meal history
-- Nutrition adherence
-
-Eventually:
+Example:
 
 ```text
-Target
-vs
-Actual
-vs
-Historical trend
+Goal
+└── Become employable as a Data Engineer
+    ├── Python
+    ├── SQL
+    ├── Data modeling
+    ├── ETL
+    ├── Spark
+    ├── Airflow
+    └── Portfolio
+```
+
+Goals must not require manual percentage updates.
+
+Progress should be derived from evidence whenever possible.
+
+---
+
+# 8. PRIORITY SYSTEM
+
+User-defined priorities are authoritative.
+
+Doctrine must not silently reorder the user's goals because an algorithm thinks another goal is more important.
+
+The system may calculate:
+
+- urgency,
+- risk,
+- deadline pressure,
+- likelihood of failure,
+
+but it must preserve explicit user priority.
+
+Priority should therefore be represented separately from calculated urgency.
+
+Example:
+
+```text
+Priority: 1
+Urgency: HIGH
+Risk: MEDIUM
+```
+
+These are different concepts.
+
+---
+
+# 9. PLAN SYSTEM
+
+Plans connect goals to actual execution.
+
+A plan should define:
+
+- objective,
+- expected duration,
+- frequency,
+- actions,
+- dependencies,
+- associated resources,
+- expected outcomes,
+- optional financial requirements.
+
+Plans should generate actionable work rather than becoming static documents.
+
+---
+
+# 10. ACTIVITY / ROUTINE SYSTEM
+
+Activities represent repeatable actions.
+
+Examples:
+
+- Morning Routine
+- Morning Skincare
+- Mass Shake
+- Workout
+- Data Engineering Session
+- Weekly Review
+
+Each activity may contain:
+
+```text
+Activity
+├── Tasks
+├── Duration
+├── Schedule
+├── Goal relationship
+├── Resource consumption definitions
+├── Expected outcomes
+└── Optional financial/resource effects
 ```
 
 ---
 
-# 10. RESOURCE INTELLIGENCE SYSTEM
+# 11. AUTOMATIC RESOURCE CONSUMPTION
 
-This is already one of the stronger existing modules.
+This is a critical requirement.
 
-Doctrine should track physical resources such as:
+Activities must be able to declare expected resource consumption.
 
-- Food
+Example:
+
+```text
+Morning Mass Shake
+
+Consumes:
+- Banana: 1 unit
+- Milk: 300 ml
+- Oats: 50 g
+- Peanut Butter: 30 g
+```
+
+Another:
+
+```text
+Morning Skincare
+
+Consumes:
+- Facewash: 2 ml
+- Moisturizer: 1 ml
+- Sunscreen: 2 ml
+```
+
+When the user completes the activity:
+
+```text
+Activity Completed
+       ↓
+Execution Event
+       ↓
+Consumption Events
+       ↓
+Resource Stock Updated
+       ↓
+Forecast Recalculated
+```
+
+No additional manual resource entry should be required.
+
+---
+
+# 12. EXPECTED VS ACTUAL CONSUMPTION
+
+Doctrine must distinguish:
+
+### Expected consumption
+
+Defined by an activity.
+
+### Actual consumption
+
+What really happened.
+
+Normal case:
+
+```text
+Activity completed
+→ expected consumption automatically recorded
+```
+
+Exception:
+
+```text
+Actual consumption differed
+→ user can correct it
+```
+
+Doctrine should not force users to enter consumption every time.
+
+---
+
+# 13. RESOURCE SYSTEM
+
+Resources represent physical or otherwise consumable assets.
+
+A resource should support:
+
+- name,
+- category,
+- quantity,
+- unit,
+- minimum stock,
+- maximum/target stock where useful,
+- consumption history,
+- purchase history,
+- expected consumption,
+- forecast,
+- replenishment status.
+
+Examples:
+
+- Facewash
+- Bananas
+- Milk
+- Oats
+- Supplements
 - Skincare products
-- Hair products
-- Supplements if applicable
-- Household items
-- College supplies
-- Other consumables
+- Household resources.
 
-Track:
+---
 
-- Current quantity
-- Minimum stock
-- Usage rate
-- Consumption events
-- Purchase events
-- Forecast
-- Expected depletion
-- Surplus
-- Purchase recommendation
+# 14. RESOURCE EVENT MODEL
 
-### Forecast pipeline
+Resource changes should be event-based.
+
+Examples:
 
 ```text
-Historical Consumption
-        ↓
-Usage Rate
-        ↓
-Current Stock
-        ↓
-Projected Depletion
-        ↓
-Required Quantity
-        ↓
-Purchase Recommendation
+PURCHASE
+CONSUMPTION
+ADJUSTMENT
+CORRECTION
+TRANSFER
+INITIAL_STOCK
 ```
 
----
+A resource quantity should not simply be manually overwritten without recording why it changed.
 
-# 11. PURCHASE PLANNING / CART SYSTEM
+Example:
 
-Cart is explicitly separate from Resources.
+```text
+Banana
 
-### Resources
+Opening stock: 10
+Consumption: -1
+Consumption: -1
+Purchase: +12
+Consumption: -2
+Correction: -1
+```
 
-> What I physically have.
-
-### Cart
-
-> What I intend to purchase.
-
-### Purchases
-
-> What I actually purchased.
-
-### Financial ledger
-
-> What money actually moved.
-
-These must never become one entity.
+This provides historical traceability.
 
 ---
 
-# 12. CART MANAGEMENT
+# 15. RESOURCE FORECASTING
 
-Support:
+Doctrine should calculate expected depletion using:
 
-- Add item
-- Edit item
-- Delete
-- Defer
-- Priority
-- Quantity
-- Estimated price
-- Target purchase date
-- Goal association
-- Resource association
-- Notes
-- Status
+```text
+Current stock
++
+Historical consumption
++
+Expected activity consumption
++
+Scheduled activities
++
+Future plans
+```
 
-Statuses:
+Possible output:
+
+```text
+Bananas
+Current: 3
+Expected daily usage: 1.2
+Estimated depletion: 2.5 days
+```
+
+The forecast should not create purchases automatically unless explicitly permitted by a future user-defined automation rule.
+
+It should create a recommendation or purchase candidate.
+
+---
+
+# 16. RESOURCE → CART → PURCHASE PIPELINE
+
+The intended lifecycle is:
+
+```text
+Resource shortage detected
+        ↓
+Purchase recommendation
+        ↓
+Cart
+        ↓
+User decision
+        ↓
+Purchase
+        ↓
+Purchase record
+        ↓
+Resource stock increase
+        ↓
+Financial expense
+        ↓
+Forecast recalculation
+```
+
+This must be traceable.
+
+---
+
+# 17. CART SYSTEM
+
+The Cart represents **purchase intent**, not spending.
+
+Cart items may contain:
+
+- item name,
+- quantity,
+- estimated price,
+- priority,
+- target purchase date,
+- status,
+- optional goal,
+- optional resource,
+- notes.
+
+Cart statuses may include:
 
 ```text
 PENDING
@@ -477,46 +582,105 @@ REJECTED
 PURCHASED
 ```
 
-But **PURCHASED should only be created through an actual purchase workflow**, not arbitrary client-side modification.
+Cart creation must not create:
+
+- an expense,
+- a purchase record,
+- resource consumption,
+- a cash deduction.
 
 ---
 
-# 13. FINANCIAL MANAGEMENT ENGINE
+# 18. PURCHASE SYSTEM
 
-This is now a dedicated subsystem.
+An actual purchase represents a real-world transaction.
 
-### Core financial entities
-
-```text
-Income
-Expense
-Reserve
-Allocation
-Goal
-Cart
-Purchase
-Budget
-Preference
-```
-
-### Money representation
-
-**Integer Paise only.**
+A purchase may automatically create:
 
 ```text
-₹1.00 = 100
-₹220.00 = 22000
+Purchase Event
++
+Financial Expense
++
+Resource Stock Increase
++
+Historical Record
++
+Forecast Recalculation
 ```
 
-Never use floating-point money for authoritative financial calculations.
+The user should not have to manually repeat the same information across multiple systems.
 
 ---
 
-# 14. FINANCIAL LEDGER
+# 19. FINANCIAL SYSTEM
 
-The ledger is authoritative.
+Financial management is a major Doctrine subsystem.
 
-Transaction types:
+It must be powerful but understandable.
+
+The system must distinguish:
+
+### Income
+
+Actual money entering available cash.
+
+### Expense
+
+Actual money leaving available cash.
+
+### Reserve
+
+Money earmarked for mandatory future obligations.
+
+### Allocation
+
+Money earmarked toward a financial goal.
+
+### Cart commitment
+
+Purchase intention.
+
+Cart commitments must not automatically reduce actual cash.
+
+---
+
+# 20. MONEY REPRESENTATION
+
+All financial values must use integer smallest units.
+
+For INR:
+
+```text
+₹1.00 = 100 Paise
+```
+
+Database values:
+
+```text
+₹220.00 → 22000
+₹185.50 → 18550
+```
+
+No floating-point monetary storage.
+
+---
+
+# 21. FINANCIAL LEDGER
+
+The financial ledger is authoritative for actual financial events.
+
+It must record:
+
+- amount,
+- type,
+- date,
+- user,
+- source,
+- relationships,
+- metadata.
+
+Relevant transaction types:
 
 ```text
 INCOME
@@ -525,1575 +689,1845 @@ RESERVE
 ALLOCATION
 ```
 
-### Fundamental rule
-
-```text
-Ledger = Financial truth
-Goal cache = Derived/cache representation
-Cart = Intent
-Purchase = Historical event
-```
+The ledger must remain historically trustworthy.
 
 ---
 
-# 15. FINANCIAL ENGINE
+# 22. FINANCIAL STATE ENGINE
 
-Calculate:
-
-### Cash
+Doctrine should calculate:
 
 ```text
 Net Cash
 Spendable Cash
-Reserved Cash
-Allocated Cash
-Discretionary Cash
+Reserved Funds
+Allocated Funds
+Discretionary Funds
+Financial Deficit
+Upcoming Obligations
 ```
 
-### Decision state
+Important distinction:
 
 ```text
-Can Spend
-Can Allocate
-Must Reserve
-Blocked By Obligations
-Highest Priority Goal
+netCash = income - expenses
 ```
 
-### Important semantic distinction
+Net cash may be negative.
 
-A negative financial position must remain visible.
+But:
 
 ```text
-netCashPaise = -5000
-spendableCashPaise = 0
+spendableCash = max(0, netCash)
 ```
 
-Never hide a deficit by simply converting it to zero.
+Therefore Doctrine can represent a deficit without recommending negative spending.
 
 ---
 
-# 16. FINANCIAL GOALS
+# 23. FINANCIAL DECISION ENGINE
 
-Support:
+The financial system should answer practical questions.
 
-- Goal name
-- Target amount
-- Priority
-- Allocation
-- Remaining amount
-- Deadline
-- Desired purchase date
-- Status
-- Progress
+Example:
 
-Priority is explicitly **user-controlled**.
+> Can I buy this?
 
-The system must not silently reorder goals because its own algorithm considers another goal more urgent.
+Doctrine considers:
+
+```text
+Current net cash
++
+Spendable cash
++
+Reserves
++
+Goal allocations
++
+Upcoming obligations
++
+Purchase price
++
+Priority
+```
+
+Possible result:
+
+```text
+BUY
+DEFER
+REJECT
+```
+
+with a reason.
+
+Example:
+
+> Defer this purchase. It is affordable in isolation, but purchasing it would reduce discretionary funds below your upcoming transport obligation.
 
 ---
 
-# 17. BUDGET ENGINE
+# 24. FINANCIAL GOALS
 
-Support:
+Financial goals answer:
 
-- Weekly budget
-- Daily budget
-- Workday income
-- Transport costs
-- Reserves
-- Discretionary spending
-- Auto-approval threshold
-- Upcoming obligations
-- Financial pressure
-
-The engine must load financial preferences dynamically.
-
-No personal financial values should be hardcoded.
-
----
-
-# 18. FINANCIAL DECISION INTELLIGENCE
-
-Eventually Doctrine should answer things like:
-
-> Can I afford this?
-
-> Should I buy this now?
-
-> What happens if I buy this?
-
-> Which goal should receive the next allocation?
-
-> How much can I safely spend?
-
-> What obligation is approaching?
-
-The system should explain **why**, not simply return a number.
+> What am I saving toward?
 
 Example:
 
 ```text
-BUY BLOCKED
+Goal:
+PC Upgrade
 
-Available discretionary funds: ₹350
-Item cost: ₹800
+Target:
+₹35,000
+
+Priority:
+1
+
+Allocated:
+₹8,000
+
+Remaining:
+₹27,000
+```
+
+The authoritative allocation source is the financial ledger.
+
+The goal allocation amount may be maintained as a synchronized read cache.
+
+---
+
+# 25. FINANCIAL SOURCE-OF-TRUTH RULE
+
+Doctrine must maintain clear authority:
+
+```text
+Financial ledger
+    ↓
+authoritative financial history
+
+Financial goal allocation cache
+    ↓
+derived/synchronized representation
+```
+
+A cache mismatch must never be repaired by modifying historical ledger transactions.
+
+---
+
+# 26. FINANCIAL ↔ RESOURCE INTEGRATION
+
+Financial and resource systems must communicate automatically.
+
+Example:
+
+```text
+Resource:
+Bananas likely run out in 3 days
+        ↓
+Purchase candidate:
+Bananas
+        ↓
+Estimated cost:
+₹120
+        ↓
+Financial engine
+        ↓
+Affordable?
+        ↓
+Recommendation
+```
+
+---
+
+# 27. PROGRESS TRACKING
+
+Progress must be **evidence-driven**.
+
+Doctrine should derive progress from:
+
+- completed actions,
+- completed milestones,
+- execution consistency,
+- measurable outputs,
+- recorded results,
+- historical comparisons,
+- goal-specific metrics.
+
+The user should not have to manually enter:
+
+> "Progress = 73%"
+
+unless a goal genuinely requires manual assessment.
+
+---
+
+# 28. EXECUTION TRACKING
+
+Every important action should produce an execution record.
+
+Possible states:
+
+```text
+PLANNED
+COMPLETED
+PARTIAL
+SKIPPED
+CANCELLED
+```
+
+The system should preserve:
+
+- planned date,
+- actual completion date,
+- duration where available,
+- associated goal,
+- associated activity,
+- reason for correction where applicable.
+
+---
+
+# 29. CONSISTENCY ENGINE
+
+Consistency should not be reduced to a meaningless streak.
+
+Doctrine should calculate:
+
+- completion rate,
+- planned vs actual,
+- recent trend,
+- recurring failure points,
+- task-type adherence,
+- time-of-day adherence,
+- weekly consistency,
+- long-term consistency.
+
+Example:
+
+```text
+Last 14 days
+
+Overall: 76%
+Morning: 91%
+Evening: 58%
+Priority-1 tasks: 83%
+```
+
+This provides actionable information.
+
+---
+
+# 30. PATTERN DETECTION
+
+Doctrine should identify patterns such as:
+
+```text
+"Completion drops after 9 PM."
+
+"Resource consumption is consistently higher on weekends."
+
+"Financial spending increases after payday."
+
+"Goal X repeatedly gets postponed when Goal Y workload increases."
+```
+
+These are derived insights, not manually entered facts.
+
+---
+
+# 31. WEEKLY REVIEW
+
+The weekly review should be largely generated automatically.
+
+It should summarize:
+
+- execution,
+- goals,
+- resources,
+- finances,
+- consistency,
+- major changes,
+- failures,
+- successes,
+- detected patterns,
+- risks,
+- recommendations.
+
+The user should primarily review and correct the interpretation.
+
+---
+
+# 32. PROGRESS PHOTOS
+
+Existing progress-photo functionality should remain part of Doctrine.
+
+It supports:
+
+- historical photos,
+- categories,
+- weekly comparison,
+- strict user isolation,
+- deterministic deltas,
+- optional AI-assisted visual comparison.
+
+Photos are evidence, not the sole source of progress.
+
+---
+
+# 33. AI SYSTEM
+
+AI must be an **advisor and reasoning layer**, not the source of truth.
+
+Architecture:
+
+```text
+Database
+   ↓
+Deterministic engines
+   ↓
+Structured state
+   ↓
+Relevant historical evidence
+   ↓
+AI context
+   ↓
+AI reasoning
+   ↓
+Human-readable recommendation
+```
+
+The AI must not independently invent:
+
+- financial balances,
+- resource quantities,
+- completion history,
+- goal progress,
+- database facts.
+
+---
+
+# 34. AI RESPONSIBILITIES
+
+AI may be used for:
+
+- explanations,
+- summaries,
+- pattern interpretation,
+- planning assistance,
+- natural-language interaction,
+- recommendation explanations,
+- weekly review interpretation,
+- contextual coaching.
+
+Deterministic code should handle:
+
+- money,
+- stock,
+- dates,
+- calculations,
+- permissions,
+- state transitions,
+- ownership,
+- source-of-truth rules.
+
+---
+
+# 35. MACHINE LEARNING
+
+ML should **not** be introduced simply because Doctrine is an AI project.
+
+ML becomes useful when enough historical data exists.
+
+Potential future models:
+
+### Consistency prediction
+
+Predict probability of completing an action.
+
+### Resource consumption prediction
+
+Predict actual usage beyond simple averages.
+
+### Financial forecasting
+
+Predict future financial pressure.
+
+### Goal-risk prediction
+
+Estimate probability of missing a goal.
+
+### Behavioral pattern detection
+
+Identify recurring conditions associated with success/failure.
+
+ML outputs must remain advisory and explainable where possible.
+
+---
+
+# 36. AI VS ML
+
+Doctrine must maintain this distinction.
+
+### Deterministic engine
+
+"What is my financial balance?"
+
+### ML
+
+"What is likely to happen?"
+
+### AI reasoning
+
+"What does this mean, and how should I explain it?"
+
+### Decision engine
+
+"What action should be prioritized?"
+
+These systems complement one another.
+
+---
+
+# 37. AUTOMATION ENGINE
+
+Doctrine should eventually support event-driven automation.
+
+Example:
+
+```text
+WHEN
+Morning Routine = COMPLETED
+
+THEN
+Record routine execution
+Record expected resource consumption
+Update resource stock
+Update progress
+Recalculate forecast
+Update current state
+```
+
+Another:
+
+```text
+WHEN
+Resource forecast < threshold
+
+THEN
+Create purchase candidate
+```
+
+Another:
+
+```text
+WHEN
+Financial purchase would threaten mandatory obligation
+
+THEN
+Flag purchase as financially unsafe
+```
+
+Automations must be deterministic and auditable.
+
+---
+
+# 38. EVENT ARCHITECTURE
+
+Doctrine should increasingly treat meaningful actions as events.
+
+Examples:
+
+```text
+TASK_COMPLETED
+TASK_SKIPPED
+ROUTINE_COMPLETED
+RESOURCE_CONSUMED
+RESOURCE_PURCHASED
+RESOURCE_ADJUSTED
+PURCHASE_CREATED
+PURCHASE_COMPLETED
+INCOME_RECORDED
+EXPENSE_RECORDED
+RESERVE_CREATED
+GOAL_ALLOCATION_CREATED
+GOAL_MILESTONE_COMPLETED
+WEEKLY_REVIEW_COMPLETED
+```
+
+Events provide historical traceability and enable automation.
+
+---
+
+# 39. DATABASE ARCHITECTURE
+
+## Target database
+
+**PostgreSQL**
+
+PostgreSQL should become the long-term system of record.
+
+The database should store structured Doctrine data rather than relying on scattered local files.
+
+Potential logical areas:
+
+```text
+users
+goals
+goal_milestones
+plans
+activities
+tasks
+executions
+execution_events
+resources
+resource_events
+resource_consumption_rules
+resource_forecasts
+financial_transactions
+financial_goals
+financial_preferences
+cart_items
+purchase_records
+weekly_reviews
+progress_photos
+derived_metrics
+insights
+automation_rules
+```
+
+Exact schema must be determined after auditing the current project ZIP.
+
+Do not blindly recreate tables that already exist.
+
+---
+
+# 40. DATABASE REQUIREMENTS
+
+Production-grade database design should include:
+
+- foreign keys,
+- indexes,
+- constraints,
+- transactions,
+- ownership enforcement,
+- timestamps,
+- appropriate numeric types,
+- explicit nullability,
+- unique constraints,
+- migration versioning,
+- auditability.
+
+Every user-owned table must have reliable ownership boundaries.
+
+---
+
+# 41. MULTI-TENANT SECURITY
+
+Every user-owned query must be scoped to the authenticated user.
+
+Never trust:
+
+```text
+?userId=
+```
+
+from the client.
+
+Identity must originate from the authoritative server-side authentication/session layer when authentication is eventually enabled.
+
+Until then, development mode may use a controlled local identity mechanism.
+
+---
+
+# 42. LOGIN IS NOT PART OF THE CURRENT PRODUCT BUILD
+
+Authentication must be explicitly excluded from the current implementation phase.
+
+Do not allow login work to block Doctrine development.
+
+Later, authentication can be evaluated separately as a production concern.
+
+Current priority:
+
+```text
+DOCTRINE FUNCTIONALITY
+>
+AUTHENTICATION
+```
+
+---
+
+# 43. LOCALHOST-FIRST DEVELOPMENT
+
+During product development:
+
+```text
+localhost
+   ↓
+primary development environment
+```
+
+Vercel should not be used as the daily development environment.
+
+Production deployment happens only after:
+
+1. Features are complete.
+2. Local tests pass.
+3. Architecture is audited.
+4. Database migration is verified.
+5. Production environment is configured.
+6. Production smoke tests pass.
+
+---
+
+# 44. VERCEL / PRODUCTION
+
+Production deployment is a separate phase.
+
+Expected architecture:
+
+```text
+Frontend
+   ↓
+Vercel
+
+Backend/serverless
+   ↓
+Vercel
+
+Persistent database
+   ↓
+PostgreSQL
+```
+
+No critical application state should depend on ephemeral Vercel filesystem storage.
+
+---
+
+# 45. FILE STORAGE
+
+Structured data belongs in PostgreSQL.
+
+Large binary assets such as progress photos should eventually use appropriate persistent object/blob storage.
+
+The application should not assume that a serverless filesystem is permanent.
+
+Existing fallback behavior should remain safe until a final object-storage architecture is selected.
+
+---
+
+# 46. API DESIGN
+
+APIs should be:
+
+- authenticated where required,
+- user-scoped,
+- validated,
+- deterministic,
+- versionable where necessary,
+- safe against malformed input,
+- free of stack-trace leakage.
+
+API responsibilities should remain separate from business logic.
+
+Example:
+
+```text
+Route
+ ↓
+Validation
+ ↓
+Service
+ ↓
+Engine
+ ↓
+Database
+```
+
+Do not place complex business logic directly inside route handlers.
+
+---
+
+# 47. SERVICE ARCHITECTURE
+
+Major business systems should have dedicated services.
+
+Examples:
+
+```text
+financialEngine
+financialSyncService
+resourceService
+resourceForecastService
+executionService
+goalService
+progressService
+decisionEngine
+automationEngine
+```
+
+Services should be testable independently.
+
+---
+
+# 48. DETERMINISTIC ENGINES
+
+The following should remain deterministic:
+
+- financial calculations,
+- resource quantities,
+- goal allocations,
+- date calculations,
+- priority ordering,
+- task states,
+- ownership checks,
+- forecast baseline calculations,
+- purchase state transitions.
+
+Given identical inputs, they should produce identical outputs.
+
+---
+
+# 49. OBSERVABILITY
+
+Doctrine should eventually have:
+
+- structured server logs,
+- error tracking,
+- health checks,
+- database diagnostics,
+- performance monitoring,
+- background-job monitoring,
+- audit logs for critical state changes.
+
+However, observability must not clutter the user interface.
+
+---
+
+# 50. ERROR HANDLING
+
+Errors should fail safely.
+
+Never:
+
+```text
+catch (error) {}
+```
+
+for critical operations.
+
+Critical failures must:
+
+1. Preserve data integrity.
+2. Log useful diagnostic information server-side.
+3. Return safe user-facing errors.
+4. Avoid leaking secrets or stack traces.
+5. Prevent partial financial/resource state corruption.
+
+---
+
+# 51. TRANSACTIONAL INTEGRITY
+
+Operations involving multiple related systems should use database transactions where appropriate.
+
+Example:
+
+```text
+Purchase
+ ↓
+Financial expense
+ ↓
+Resource stock increase
+ ↓
+Purchase record
+```
+
+These should not leave Doctrine in an inconsistent half-completed state.
+
+---
+
+# 52. IDEMPOTENCY
+
+Automatic operations must avoid duplicate effects.
+
+Example:
+
+If a routine-completion request is accidentally sent twice, Doctrine must not automatically consume:
+
+```text
+2 bananas
+```
+
+when only one routine was actually completed.
+
+The system needs unique execution/event identities or equivalent safeguards.
+
+---
+
+# 53. AUDITABILITY
+
+Important state changes should be explainable.
+
+Doctrine should be able to answer:
+
+> Why did my resource decrease?
+
+Example:
+
+```text
+Bananas -1
 
 Reason:
-The purchase would exceed the current discretionary budget
-and interfere with the upcoming transport reserve.
+Morning Mass Shake completed
+2026-08-17 07:20
 ```
 
----
-
-# 19. WEEKLY REVIEW SYSTEM
-
-Sunday becomes a major review cycle.
-
-Review:
-
-- Goal progress
-- Task adherence
-- Habit adherence
-- Physical progress
-- Financial progress
-- Resource consumption
-- Missed commitments
-- Projects
-- Weekly achievements
-- Problems
-- Next-week priorities
-
----
-
-# 20. PROGRESS TRACKING
-
-Doctrine should maintain historical records rather than overwriting state.
-
-Track:
-
-- Daily execution
-- Weekly execution
-- Monthly progress
-- Goal progress
-- Fitness progress
-- Financial progress
-- Habit adherence
-- Project progress
-
-This creates a longitudinal personal dataset.
-
----
-
-# 21. SMART SUNDAY
-
-Automate the weekly analysis pipeline:
+Financial:
 
 ```text
-Weekly Data
-    ↓
-Execution Analysis
-    ↓
-Goal Progress
-    ↓
-Physical Progress
-    ↓
-Financial Analysis
-    ↓
-Resource Analysis
-    ↓
-Weakness Detection
-    ↓
-Weekly Review
-    ↓
-Next Week Plan
+₹350 expense
+
+Reason:
+Purchase #P-104
 ```
 
----
-
-# 22. AI INTELLIGENCE LAYER
-
-AI should **not replace the deterministic Doctrine engine**.
-
-Instead:
+Goal:
 
 ```text
-Doctrine Rules
-      ↓
-Deterministic State
-      ↓
-AI Interpretation
-      ↓
-Recommendation
-      ↓
-User Decision
+₹500 allocation
+
+Source:
+Financial transaction #TX-204
 ```
 
-The AI should never override authoritative financial or safety rules.
+This is essential for trust.
 
 ---
 
-# 23. AI CAPABILITIES
+# 54. AUTOMATIC TRACEABILITY REQUIREMENT
 
-Planned AI features:
+Every significant action should have a causal chain.
 
-### Personal planning
-
-- Explain today's priorities
-- Explain why a task matters
-- Suggest task ordering
-- Identify conflicts
-- Summarize progress
-
-### Weekly intelligence
-
-- Weekly summary
-- Weakness detection
-- Progress interpretation
-- Pattern recognition
-- Next-week suggestions
-
-### Project intelligence
-
-- Project planning
-- Milestone decomposition
-- Risk identification
-- Progress summaries
-
-### Financial intelligence
-
-- Explain financial state
-- Explain purchase decisions
-- Explain budget pressure
-- Explain goal tradeoffs
-
-### Resource intelligence
-
-- Explain depletion forecasts
-- Explain purchase recommendations
-
----
-
-# 24. MACHINE LEARNING / PERSONALIZATION
-
-We should **not begin by training a custom ML model**.
-
-First build the data foundation.
-
-Doctrine will gradually collect:
+Example:
 
 ```text
-Task
-↓
-Scheduled Time
-↓
+Morning Routine
+      ↓
 Execution
+      ↓
+Resource Consumption
+      ↓
+Stock Change
+      ↓
+Forecast Change
+      ↓
+Purchase Recommendation
+      ↓
+Cart
+```
+
+Doctrine should not contain disconnected modules where the same real-world event must be manually entered multiple times.
+
+---
+
+# 55. MONITORING WITHOUT OVERLOAD
+
+The user must be able to monitor Doctrine without monitoring its internal machinery.
+
+The interface should surface:
+
+### Today
+
+- important actions,
+- execution progress,
+- immediate problems.
+
+### Resources
+
+- low stock,
+- upcoming depletion,
+- important purchase recommendations.
+
+### Finance
+
+- available money,
+- obligations,
+- discretionary amount,
+- important financial warnings.
+
+### Goals
+
+- progress,
+- risk,
+- deadlines.
+
+### Intelligence
+
+- important patterns,
+- recommended changes.
+
+Everything else should remain accessible but secondary.
+
+---
+
+# 56. DASHBOARD DESIGN PRINCIPLE
+
+The dashboard should answer:
+
+> **"How am I doing?"**
+
+not:
+
+> "Here are all 147 things Doctrine knows about you."
+
+Information should be prioritized.
+
+Use:
+
+```text
+Critical
 ↓
-Completion / Failure
+Important
 ↓
-Duration
+Useful
 ↓
-Context
+Historical
 ↓
-Outcome
+Technical
 ```
 
-Then we can derive personalized models.
+rather than presenting everything equally.
 
-### Future ML capabilities
+---
 
-#### Task completion prediction
+# 57. DAILY INTERACTION BUDGET
+
+Doctrine should aim for extremely low manual tracking overhead.
+
+Typical daily interaction should be measured in **minutes**, not hours.
+
+The user should primarily:
 
 ```text
-P(task completed | time, duration, priority, history, context)
-```
-
-#### Optimal scheduling
-
-Learn:
-
-- Best time for studying
-- Best workout time
-- Most productive hours
-- Failure periods
-- Recovery periods
-
-#### Habit adherence prediction
-
-Predict:
-
-```text
-Likely completion
-Likely failure
-Risk of breaking streak
-```
-
-#### Goal risk prediction
-
-```text
-Goal
-↓
-Current velocity
-↓
-Deadline
-↓
-Historical adherence
-↓
-Risk score
-```
-
-#### Personalized recommendations
-
-Eventually:
-
-> "You historically complete programming tasks 31% more often between 9–11 PM than between 6–8 PM."
-
-This should come from **the user's own historical data**, not generic assumptions.
-
----
-
-# 25. COMPUTER VISION / AI PHOTO ANALYSIS
-
-For progress photos:
-
-- Compare historical photos
-- Detect visible change
-- Calculate structured deltas where technically reliable
-- Provide constrained observations
-- Preserve historical photos
-- Maintain privacy
-- Include appropriate disclaimers
-
-AI must not turn this into medical diagnosis.
-
----
-
-# 26. PROJECT MANAGEMENT SYSTEM
-
-Doctrine itself needs project tracking.
-
-Projects support:
-
-- Project name
-- Description
-- Objective
-- Priority
-- Status
-- Milestones
-- Tasks
-- Technology stack
-- Deadlines
-- Progress
-- Notes
-- Risks
-- Dependencies
-
-This allows projects such as:
-
-```text
-Scriptloom
-Doctrine
-Horizon Intelligence
-Blockchain projects
-Data Engineering portfolio
-```
-
-to exist inside the operating system without hardcoding those names.
-
----
-
-# 27. KNOWLEDGE SYSTEM
-
-Eventually Doctrine should have a personal knowledge layer.
-
-Support:
-
-- Notes
-- Documents
-- References
-- Project knowledge
-- Lessons learned
-- Decisions
-- Reviews
-- Links
-- Tags
-- Search
-
-Potential future architecture:
-
-```text
-Knowledge
-   ↓
-Embeddings
-   ↓
-Vector Search
-   ↓
-Context Retrieval
-   ↓
-AI Reasoning
-```
-
----
-
-# 28. AI MEMORY / PERSONAL CONTEXT
-
-Long-term intelligence should be based on structured data.
-
-Examples:
-
-```text
-Goals
-Preferences
-Schedules
-Historical execution
-Projects
-Financial state
-Habit history
-Weekly reviews
-Knowledge
-```
-
-The AI should retrieve relevant information rather than dumping the entire database into every prompt.
-
----
-
-# 29. SEARCH SYSTEM
-
-Eventually provide global search across:
-
-- Tasks
-- Goals
-- Projects
-- Resources
-- Cart
-- Financial records
-- Reviews
-- Notes
-- Knowledge
-
-Potential future stack:
-
-```text
-SQLite/Turso search
-+
-Full-text indexing
-+
-Embedding search where justified
-```
-
----
-
-# 30. DASHBOARD
-
-The dashboard should answer five questions immediately:
-
-### 1. What should I do now?
-
-### 2. What matters today?
-
-### 3. Am I on track?
-
-### 4. What is going wrong?
-
-### 5. What should I prepare for?
-
-Possible sections:
-
-```text
-Current Action
-Today's Plan
-Doctrine Priorities
-Progress
-Financial State
-Upcoming Obligations
-Resources
-Projects
-Weekly Progress
-```
-
----
-
-# 31. NOTIFICATION / ALERT ENGINE
-
-Eventually support:
-
-- Upcoming task
-- Missed task
-- Financial warning
-- Resource depletion
-- Goal deadline
-- Weekly review
-- Habit risk
-- Project deadline
-
-Notifications must be meaningful.
-
-No notification spam.
-
----
-
-# 32. ANALYTICS ENGINE
-
-Provide:
-
-### Execution analytics
-
-- Completion %
-- Failure %
-- Deferral %
-- Average completion time
-- Adherence
-
-### Goal analytics
-
-- Progress velocity
-- Deadline risk
-- Completion probability
-
-### Financial analytics
-
-- Income
-- Expenses
-- Savings
-- Allocations
-- Spending trends
-- Budget utilization
-
-### Physical analytics
-
-- Weight trend
-- Workout progression
-- Habit adherence
-- Photo progression
-
----
-
-# 33. DATA ARCHITECTURE
-
-Target conceptual architecture:
-
-```text
-                    DOCTRINE
-                       │
-          ┌────────────┴────────────┐
-          │                         │
-     React Frontend             Express API
-          │                         │
-          │                  Service Layer
-          │                         │
-          │        ┌────────────────┼────────────────┐
-          │        │                │                │
-          │   Doctrine Engine  Financial Engine  AI Engine
-          │        │                │                │
-          └────────┴────────────────┴────────────────┘
-                           │
-                     Drizzle ORM
-                           │
-                 ┌─────────┴─────────┐
-                 │                   │
-            Local SQLite          Turso
-```
-
----
-
-# 34. DATABASE PRINCIPLES
-
-Every major subsystem gets explicit entities.
-
-Core groups:
-
-```text
-Users
-Preferences
-Doctrine
-Goals
-Milestones
-Tasks
-Task Executions
-Habits
-Habit Executions
-Schedules
-Projects
-Resources
-Consumption Events
-Purchase Events
-Cart Items
-Financial Transactions
-Financial Goals
-Financial Preferences
-Weekly Reviews
-Progress Photos
-Knowledge
-AI Analysis
-```
-
-No giant "everything table."
-
----
-
-# 35. DATABASE INTEGRITY
-
-Production-grade requirements:
-
-- Foreign keys
-- Cascades where appropriate
-- `SET NULL` for historical relationships
-- Unique constraints
-- Check constraints where appropriate
-- Indexed lookup fields
-- User ownership enforcement
-- Transaction boundaries
-- Migration safety
-- Idempotent migrations
-- No silent migration failures
-- No destructive migrations without explicit strategy
-
----
-
-# 36. API ARCHITECTURE
-
-Organize APIs by domain:
-
-```text
-/api/doctrine
-/api/goals
-/api/tasks
-/api/habits
-/api/schedule
-/api/projects
-/api/resources
-/api/financial
-/api/cart
-/api/purchases
-/api/reviews
-/api/progress
-/api/skincare
-/api/fitness
-/api/nutrition
-/api/ai
-/api/knowledge
-/api/analytics
-/api/health
-```
-
-No giant monolithic route file.
-
----
-
-# 37. API PRINCIPLES
-
-Every API must have:
-
-- Input validation
-- Output contract
-- Error handling
-- User ownership
-- Authorization where required
-- Deterministic behavior where possible
-- Sanitized errors
-- Consistent HTTP status codes
-- No sensitive stack traces
-- No client-controlled ownership
-- No arbitrary `userId` overrides
-
----
-
-# 38. FRONTEND ARCHITECTURE
-
-React components should be modular.
-
-Conceptually:
-
-```text
-App
-├── Dashboard
-├── Doctrine
-├── Tasks
-├── Goals
-├── Projects
-├── Fitness
-├── Skincare
-├── Nutrition
-├── Resources
-├── Cart
-├── Budget
-├── Reviews
-├── Progress
-├── Knowledge
-└── Settings
-```
-
-Avoid putting business logic directly inside UI components.
-
----
-
-# 39. SERVICE LAYER
-
-Business logic belongs in services.
-
-Examples:
-
-```text
-financialEngine.js
-financialSyncService.js
-goalService.js
-taskService.js
-resourceService.js
-forecastService.js
-reviewService.js
-aiService.js
-analyticsService.js
-```
-
-Frontend should consume APIs rather than recreate authoritative business calculations.
-
----
-
-# 40. VALIDATION
-
-Use a proper schema validation layer.
-
-Validate:
-
-- Dates
-- IDs
-- Quantities
-- Money
-- Enum values
-- Strings
-- Arrays
-- Request bodies
-- Query parameters
-
-Invalid data should fail immediately.
-
----
-
-# 41. SECURITY
-
-Even without implementing login now, the architecture must be **authentication-ready**.
-
-Security requirements:
-
-- No hardcoded secrets
-- Environment variables
-- Secure session architecture later
-- User-scoped database queries
-- IDOR protection
-- Input validation
-- Output sanitization
-- No stack trace exposure
-- Safe error messages
-- Rate limiting where appropriate
-- CORS policy
-- CSRF consideration
-- Secure cookies when auth is eventually enabled
-- Dependency auditing
-
-**But: no login UI or login implementation work now.**
-
----
-
-# 42. PRODUCTION PERSISTENCE
-
-### Localhost
-
-```text
-SQLite
-```
-
-### Production
-
-```text
-Turso
-```
-
-The application must never silently fall back from production Turso to ephemeral SQLite.
-
-If production persistence is unavailable:
-
-```text
-FAIL CLOSED
+Complete
+Skip
+Correct
+Confirm
+Ask
 ```
 
 not:
 
 ```text
-silently create temporary database
+Create
+Enter
+Calculate
+Update
+Recalculate
+Synchronize
 ```
 
 ---
 
-# 43. SERVERLESS COMPATIBILITY
+# 58. MANUAL OVERRIDES
 
-Because production is planned for Vercel:
+Automation must never become a prison.
 
-Avoid relying on:
+The user must be able to correct:
 
-- Permanent local filesystem
-- Long-running processes
-- In-memory persistence
-- Local process state
-- Hardcoded ports
-- Development-only environment assumptions
+- resource consumption,
+- task completion,
+- financial records,
+- forecasts,
+- goal state,
+- routine definitions.
 
-For files:
-
-```text
-Database/Data URI/Object Storage
-```
-
-rather than assuming serverless disk persistence.
+But corrections should be treated as explicit exceptions, not the normal workflow.
 
 ---
 
-# 44. TESTING STRATEGY
+# 59. PERSONALIZATION
 
-Every major feature should have:
+Doctrine should gradually learn:
+
+- preferred work times,
+- common failure periods,
+- realistic task duration,
+- resource consumption patterns,
+- spending patterns,
+- goal priorities,
+- scheduling constraints,
+- successful routines.
+
+Personalization must come from evidence.
+
+It must never silently redefine user priorities.
+
+---
+
+# 60. SECURITY
+
+Production-grade security requirements include:
+
+- secure authentication when implemented,
+- HTTP-only cookies where appropriate,
+- secure session handling,
+- CSRF protection where applicable,
+- input validation,
+- authorization checks,
+- user isolation,
+- secret management,
+- no secrets in Git,
+- no stack traces in production responses,
+- rate limiting where appropriate,
+- secure headers,
+- database least-privilege access.
+
+---
+
+# 61. TESTING STRATEGY
+
+Doctrine must maintain multiple testing levels.
 
 ### Unit tests
 
-Test individual functions.
+For:
+
+- money,
+- calculations,
+- forecasts,
+- decision logic,
+- parsers,
+- validation.
 
 ### Integration tests
 
-Test service + database.
+For:
+
+- database interactions,
+- services,
+- event processing,
+- resource updates,
+- financial workflows.
 
 ### API tests
 
-Test HTTP contracts.
+For:
 
-### Security tests
+- authentication,
+- authorization,
+- validation,
+- ownership,
+- response contracts.
 
-Test ownership/isolation.
+### End-to-end tests
 
-### Regression tests
-
-Ensure existing features don't break.
-
-### UI foundation tests
-
-Verify critical UI contracts.
-
-### Production compatibility tests
-
-Verify serverless behavior.
-
-Target:
+For critical user flows:
 
 ```text
-npm test
-      ↓
-All tests pass
-      ↓
+Complete routine
+→ resource automatically decreases
+→ progress updates
+→ forecast changes
+```
+
+and:
+
+```text
+Purchase item
+→ expense recorded
+→ stock updated
+→ financial state updated
+```
+
+---
+
+# 62. CURRENT TESTING STANDARD
+
+Existing Doctrine development already has a substantial automated test foundation.
+
+Recent checkpoints have reached:
+
+```text
+209 / 209 tests passing
+```
+
+and later broader verification reached:
+
+```text
+210 / 210 tests passing
+```
+
+The project should preserve this discipline.
+
+No major feature should be considered complete merely because the UI appears to work.
+
+---
+
+# 63. BUILD REQUIREMENT
+
+Every meaningful implementation checkpoint should verify:
+
+```text
+npm run test
 npm run build
-      ↓
-Build passes
-      ↓
-localhost verification
-      ↓
-Feature complete
+git diff --check
 ```
+
+Where relevant, perform targeted integration/API tests as well.
 
 ---
 
-# 45. CI/CD
+# 64. DEVELOPMENT BRANCH POLICY
 
-Eventually:
+All active development occurs on:
 
 ```text
-Git push
-   ↓
-CI
-   ↓
-Lint
-   ↓
-Unit tests
-   ↓
-Integration tests
-   ↓
+test
+```
+
+The `main` branch must remain untouched unless explicitly authorized.
+
+Do not:
+
+- merge,
+- reset,
+- deploy,
+- push,
+- rewrite history,
+
+without explicit authorization.
+
+---
+
+# 65. FEATURE ACCEPTANCE STANDARD
+
+A feature is not complete when:
+
+> "The button works."
+
+It is complete when:
+
+```text
+UI
++
+API
++
+Database
++
+Business logic
++
+Automatic side effects
++
+Security
++
+Error handling
++
+Tests
++
 Build
-   ↓
-Preview deployment
-   ↓
-Smoke tests
-   ↓
-Production promotion
++
+Traceability
 ```
 
-Production should never depend on blindly deploying untested code.
+are all coherent.
 
 ---
 
-# 46. OBSERVABILITY
+# 66. WHAT NOT TO BUILD
 
-Production should eventually have:
+Doctrine should explicitly avoid feature bloat.
 
-- Health endpoint
-- Database diagnostics
-- Structured server logs
-- Error tracking
-- Request tracing where useful
-- Deployment logs
-- Performance monitoring
-- Database monitoring
+Do not add features merely because they are common in productivity applications.
 
-Never expose diagnostic secrets publicly.
+Avoid unnecessary:
 
----
+- gamification,
+- badges,
+- excessive streak mechanics,
+- social systems,
+- feeds,
+- unnecessary calendars,
+- complicated journaling,
+- redundant dashboards,
+- excessive tags,
+- duplicate task systems,
+- manual analytics entry,
+- decorative AI features,
+- meaningless productivity scores.
 
-# 47. PERFORMANCE
-
-Target:
-
-- Lazy-loaded pages
-- Code splitting
-- Efficient DB queries
-- Appropriate indexes
-- Pagination for historical datasets
-- Cached derived calculations
-- Avoid unnecessary AI calls
-- Avoid loading entire datasets into frontend
-- Optimized images
-- Compressed assets
+Every feature must contribute to the Doctrine operating loop.
 
 ---
 
-# 48. AI COST CONTROL
+# 67. FEATURE EVALUATION RULE
 
-AI calls should be deliberate.
+Before implementing a feature, ask:
 
-Use deterministic calculations first.
+### Question 1
 
-For example:
+Does it help Doctrine observe reality?
+
+### Question 2
+
+Does it help Doctrine understand reality?
+
+### Question 3
+
+Does it help Doctrine make a better decision?
+
+### Question 4
+
+Does it reduce manual work?
+
+### Question 5
+
+Does it improve consistency or resource management?
+
+If the answer to all five is no, the feature should probably not exist.
+
+---
+
+# 68. DATA PIPELINE
+
+The long-term data pipeline is:
 
 ```text
-"Can I afford ₹500?"
-        ↓
-Financial Engine
-        ↓
-Deterministic answer
-```
-
-Only then:
-
-```text
-AI
-↓
-Explain reasoning / provide contextual advice
-```
-
-Don't waste an LLM call on arithmetic.
-
----
-
-# 49. ERROR PHILOSOPHY
-
-Doctrine should distinguish:
-
-```text
-USER ERROR
-SYSTEM ERROR
-DATABASE ERROR
-NETWORK ERROR
-AI ERROR
-CONFIGURATION ERROR
-```
-
-Each gets an appropriate response.
-
-Example:
-
-```text
-Invalid quantity
-→ 400
-
-Unauthorised resource
-→ 404/403 depending on contract
-
-Database unavailable
-→ 500 + safe message
-
-AI unavailable
-→ deterministic fallback where possible
+USER ACTIONS
+     ↓
+EVENTS
+     ↓
+POSTGRESQL
+     ↓
+CURRENT STATE
+     ↓
+DETERMINISTIC ANALYTICS
+     ↓
+HISTORICAL PATTERNS
+     ↓
+ML / AI
+     ↓
+DECISION ENGINE
+     ↓
+RECOMMENDATION
 ```
 
 ---
 
-# 50. DATA HISTORY PRINCIPLE
+# 69. LONG-TERM INTELLIGENCE STACK
 
-Doctrine should generally **append historical truth rather than overwrite it**.
-
-Examples:
-
-Bad:
+The mature Doctrine architecture should look like:
 
 ```text
-Weight = 48kg
+                ┌───────────────────┐
+                │   USER INTERFACE  │
+                └─────────┬─────────┘
+                          │
+                          ▼
+                ┌───────────────────┐
+                │ EXECUTION SYSTEM  │
+                └─────────┬─────────┘
+                          │
+                          ▼
+                ┌───────────────────┐
+                │    EVENT LAYER    │
+                └─────────┬─────────┘
+                          │
+                          ▼
+                ┌───────────────────┐
+                │    POSTGRESQL     │
+                └─────────┬─────────┘
+                          │
+             ┌────────────┼────────────┐
+             ▼            ▼            ▼
+        STATE ENGINE   ANALYTICS    HISTORY
+             │            │            │
+             └────────────┼────────────┘
+                          ▼
+                ┌───────────────────┐
+                │ FORECASTING / ML  │
+                └─────────┬─────────┘
+                          │
+                          ▼
+                ┌───────────────────┐
+                │ DECISION ENGINE   │
+                └─────────┬─────────┘
+                          │
+                          ▼
+                ┌───────────────────┐
+                │    AI ADVISOR     │
+                └─────────┬─────────┘
+                          │
+                          ▼
+                      WHAT NOW?
 ```
-
-Better:
-
-```text
-Weight history:
-Aug 1 → 47kg
-Aug 8 → 47.6kg
-Aug 15 → 48kg
-```
-
-Same principle for:
-
-- Financial transactions
-- Purchases
-- Task executions
-- Progress photos
-- Weekly reviews
-- Habit execution
-
-This is essential for future analytics and ML.
 
 ---
 
-# 51. DETERMINISM PRINCIPLE
+# 70. TECHNOLOGY DIRECTION
 
-Whenever a decision can be deterministic, make it deterministic.
+The exact versions should be verified against the project before migration.
 
-```text
-Financial calculations → deterministic
-Stock calculations → deterministic
-Goal priority → deterministic
-Task state → deterministic
-Calendar calculations → deterministic
-AI interpretation → probabilistic
-```
+Current architectural direction:
 
-AI should sit **above** the authoritative system, not underneath it.
+### Frontend
 
----
+- JavaScript
+- React
+- Vite
+- CSS/component architecture already present
 
-# 52. TECHNOLOGY STACK
+### Backend
 
-## Frontend
+- JavaScript
+- Node.js
+- Express
+- service-oriented backend
 
-| Technology | Purpose |
-|---|---|
-| JavaScript | Primary language |
-| React | UI |
-| Vite | Build tooling |
-| CSS / existing styling system | UI |
-| Lucide or existing icon system | Icons |
+### Database
 
-## Backend
+**Target: PostgreSQL**
 
-| Technology | Purpose |
-|---|---|
-| JavaScript | Primary backend language |
-| Node.js | Runtime |
-| Express | API |
-| Drizzle ORM | Database access |
-| SQLite | Local development |
-| Turso | Production database |
+### ORM / database layer
 
-## AI
+Existing Drizzle architecture should be evaluated and retained where appropriate.
 
-| Technology | Purpose |
-|---|---|
-| Gemini API | AI reasoning |
-| Embeddings | Future semantic search |
-| Vector storage/search | Future knowledge retrieval |
-| Computer vision capabilities | Progress-photo analysis |
+### AI
 
-## Production
+Gemini integration where appropriate.
 
-| Technology | Purpose |
-|---|---|
-| Vercel | Hosting/serverless |
-| Turso | Persistent production DB |
-| Git | Version control |
-| CI/CD | Automated verification |
+### ML
+
+Python is preferred for future ML experimentation/training if ML complexity justifies a separate service.
+
+### Production
+
+- Vercel for application/serverless deployment where appropriate
+- PostgreSQL for persistent structured data
+- Persistent object storage for large binary assets when required
 
 ---
 
-# 53. LANGUAGES
+# 71. LANGUAGE STRATEGY
 
-Primary:
+Do not rewrite the project simply because another language is theoretically better.
+
+Current JavaScript codebase remains the primary application language.
+
+Use:
 
 ```text
 JavaScript
-```
+→ application
 
-Supporting:
-
-```text
 SQL
-HTML
-CSS
-```
+→ database
 
-Potential later:
-
-```text
 Python
+→ future ML/data science workloads when justified
 ```
 
-only if a genuinely valuable ML/data-processing subsystem justifies it.
-
-**Do not introduce Python merely because "ML" exists in the roadmap.**
-
-The first version of Doctrine's intelligence can remain entirely JavaScript-based.
+A language change must solve a real engineering problem.
 
 ---
 
-# 54. WHAT WE WILL NOT BUILD
+# 72. DATA SCIENCE / ML FUTURE
 
-These are explicit exclusions from the current blueprint.
+If ML becomes substantial, the architecture may become:
 
-### Not now:
+```text
+JavaScript Application
+        ↓
+PostgreSQL
+        ↓
+Python ML Service
+        ↓
+Predictions
+        ↓
+PostgreSQL
+        ↓
+Doctrine Decision Engine
+```
 
-- Login UI
-- Authentication implementation
-- Auth0
-- User registration
-- Google login interface
-- Social login
-- Complex account management
-
-### Also avoid unnecessary complexity:
-
-- Custom ML model training
-- Microservices
-- Kubernetes
-- Blockchain integration into Doctrine
-- Over-engineered event buses
-- Premature vector databases
-- Premature distributed architecture
-
-Doctrine is a **single serious product**, not a technology demonstration.
+Do not introduce this separation until the data volume and problem justify it.
 
 ---
 
-# 55. DEVELOPMENT ORDER
+# 73. THE AUTOMATIC ROUTINE EXAMPLE
 
-This is the most important part.
+This is the reference implementation pattern.
 
-We should **not randomly pick features**.
-
-### Layer 1 — Foundation
+User:
 
 ```text
-Database
-Schema
-Migrations
-Validation
-Core services
-API conventions
-Error handling
-Testing
+✓ Morning Routine
 ```
 
-### Layer 2 — Doctrine Core
+Doctrine:
 
 ```text
-Doctrine
-Areas
-Goals
-Milestones
-Tasks
-Schedules
-Execution
-Habits
+1. Create execution record
+
+2. Generate expected resource events:
+   Facewash -2 ml
+   Banana -1
+   Milk -300 ml
+
+3. Update resource state
+
+4. Update progress
+
+5. Update consistency
+
+6. Update historical events
+
+7. Recalculate resource forecasts
+
+8. Recalculate relevant financial/resource implications
+
+9. Update current state
+
+10. Make new recommendations available
 ```
 
-### Layer 3 — Personal Systems
+User sees:
+
+> Morning Routine completed.
+
+Optionally:
+
+> Resources automatically updated.
+
+That's it.
+
+---
+
+# 74. EXCEPTION EXAMPLE
+
+If the user used two bananas instead of one:
 
 ```text
-Fitness
-Skincare
-Grooming
-Nutrition
-Progress
-Weekly Review
+Morning Routine
+✓ completed
 ```
 
-### Layer 4 — Physical/Financial Systems
+Doctrine assumes normal consumption.
+
+Only if necessary:
+
+> Consumption differed?
+
+User:
+
+> Yes — 2 bananas.
+
+Doctrine creates:
 
 ```text
-Resources
-Consumption
+Expected: -1
+Actual correction: -1
+Net actual consumption: -2
+```
+
+The system remains accurate without making every day cumbersome.
+
+---
+
+# 75. FINANCIAL PURCHASE EXAMPLE
+
+User purchases a planned item.
+
+Doctrine should perform:
+
+```text
+Cart item
+      ↓
+Purchase confirmation
+      ↓
+Purchase record
+      ↓
+Financial EXPENSE
+      ↓
+Resource stock update if applicable
+      ↓
+Goal status update if applicable
+      ↓
+Financial state recalculation
+      ↓
+Cart status = PURCHASED
+      ↓
+Historical record
+```
+
+No duplicate manual entry.
+
+---
+
+# 76. RESOURCE REPLENISHMENT EXAMPLE
+
+Doctrine detects:
+
+```text
+Milk:
+Current stock = 500 ml
+Expected consumption = 300 ml/day
+```
+
+It predicts depletion.
+
+Then:
+
+```text
 Forecast
-Cart
-Purchases
-Financial Ledger
-Budget
-Financial Goals
+ ↓
+Purchase candidate
+ ↓
+Cart suggestion
+ ↓
+Financial affordability check
 ```
 
-### Layer 5 — Intelligence
+The user receives:
+
+> Milk is likely to run out tomorrow. Estimated replenishment: ₹X. You can afford it without affecting your current Priority-1 goal.
+
+That is the intended Doctrine experience.
+
+---
+
+# 77. FINANCIAL INTELLIGENCE EXAMPLE
+
+User considers a ₹5,000 purchase.
+
+Doctrine knows:
 
 ```text
-Financial intelligence
-Resource intelligence
-Goal intelligence
-Execution intelligence
-Weekly intelligence
-AI assistant
+Net cash
+Reserved money
+Goal allocations
+Upcoming obligations
+Expected income
+Existing commitments
 ```
 
-### Layer 6 — ML / Personalization
+Instead of merely saying:
+
+> Balance: ₹8,000
+
+it can say:
+
+> You technically have ₹8,000 cash, but only ₹3,200 is discretionary after existing commitments. This purchase should be deferred.
+
+That is much more useful.
+
+---
+
+# 78. CONSISTENCY INTELLIGENCE EXAMPLE
+
+Doctrine detects:
 
 ```text
-Historical dataset
-Feature extraction
-Prediction
-Personal scheduling
-Adherence prediction
-Goal risk prediction
+Priority-1 tasks:
+82% completion
+
+Tasks scheduled after 9 PM:
+46%
+
+Tasks scheduled before 7 PM:
+88%
 ```
 
-### Layer 7 — Production
+It can infer:
+
+> Your execution reliability drops sharply late at night. Doctrine recommends moving high-cognitive-load work earlier.
+
+The system doesn't merely count missed tasks.
+
+It learns from them.
+
+---
+
+# 79. THE FINAL USER EXPERIENCE
+
+The mature product should feel like:
 
 ```text
-Security audit
-Performance
-Observability
-Vercel
-Turso
-CI/CD
-Production smoke tests
+                 DOCTRINE
+
+        "How are things going?"
+
+Execution        78%
+Goals            4 / 5 on track
+Finance          ₹X discretionary
+Resources        2 alerts
+Consistency      Improving
+
+────────────────────────────
+
+WHAT NOW?
+
+Data Engineering
+45 minutes
+
+Reason:
+Priority-1 milestone is behind
+schedule and your historical
+completion rate is strongest
+during this time.
+
+────────────────────────────
+
+ATTENTION
+
+• Milk likely runs out tomorrow
+• Financial goal remains on track
+• Weekly review due Sunday
+```
+
+The user can inspect deeper information whenever desired.
+
+But they are never forced to manage the machinery.
+
+---
+
+# 80. FINAL DOCTRINE PRINCIPLE
+
+The project should always optimize for:
+
+> **Maximum useful understanding with minimum required user maintenance.**
+
+Not:
+
+> Maximum number of features.
+
+Not:
+
+> Maximum number of dashboards.
+
+Not:
+
+> Maximum amount of AI.
+
+Not:
+
+> Maximum amount of data entry.
+
+The objective is:
+
+```text
+          LESS MANUAL TRACKING
+                  ↓
+          MORE AUTOMATIC DATA
+                  ↓
+          BETTER UNDERSTANDING
+                  ↓
+          BETTER DECISIONS
+                  ↓
+          BETTER CONSISTENCY
+                  ↓
+          BETTER RESOURCE USE
+                  ↓
+          BETTER LIFE MANAGEMENT
 ```
 
 ---
 
-# 56. MASTER IMPLEMENTATION RULE
+# 81. IMPLEMENTATION ORDER
 
-Every feature must go through this pipeline:
+The project should proceed in this order.
 
-```text
-BLUEPRINT
-   ↓
-DATABASE MODEL
-   ↓
-BUSINESS RULES
-   ↓
-SERVICE
-   ↓
-API
-   ↓
-UI
-   ↓
-TESTS
-   ↓
-SECURITY TESTS
-   ↓
-LOCALHOST VERIFICATION
-   ↓
-CHECKPOINT COMMIT
-```
+## Phase 0 — Project audit
 
-Only then move to the next feature.
+Before further implementation:
+
+- inspect current project ZIP,
+- map every existing feature,
+- map current database schema,
+- map APIs,
+- map frontend routes/components,
+- identify duplicated systems,
+- identify dead code,
+- identify current authentication dependencies,
+- identify SQLite dependencies,
+- identify filesystem dependencies.
+
+**No unnecessary rewrites.**
 
 ---
 
-# 57. THE MASTER AI PROMPT
+## Phase 1 — Data architecture
 
-When we start analyzing the ZIP, this is the instruction I recommend giving the coding AI:
+- finalize PostgreSQL schema,
+- migrate existing structured data architecture,
+- establish migrations,
+- establish indexes,
+- preserve ownership constraints,
+- preserve existing financial semantics,
+- preserve existing resource semantics.
+
+---
+
+## Phase 2 — Event / execution architecture
+
+Build the foundation for:
 
 ```text
-You are the principal engineer responsible for implementing DOCTRINE.
-
-DOCTRINE is a personal operating system whose purpose is:
-
-Doctrine → Plan → Action → Execution → Measurement → Review → Adaptation.
-
-The product blueprint is authoritative. The existing codebase is NOT authoritative.
-
-IMPORTANT:
-Do not redesign the product based on what the existing implementation happens to support.
-Do not remove planned capabilities simply because the current code lacks them.
-Do not introduce features that are not part of the Doctrine blueprint without explicit approval.
-
-AUTHENTICATION:
-Completely skip login/authentication UI and authentication implementation work for now.
-Do NOT build Auth0.
-Do NOT build Google Login.
-Do NOT build registration.
-Do NOT spend development time on authentication.
-The application must remain usable on localhost without requiring a login screen.
-Authentication can be analyzed and implemented later as a separate production concern.
-
-DEVELOPMENT ENVIRONMENT:
-localhost is the primary development environment.
-Do not make Vercel deployment the blocker for feature development.
-Vercel/Turso production hardening will be handled after the product implementation is substantially complete.
-
-TECHNOLOGY PRINCIPLES:
-- JavaScript is the primary language.
-- React + Vite for frontend.
-- Node.js + Express for backend.
-- Drizzle ORM.
-- SQLite for localhost.
-- Turso for production.
-- Gemini for AI capabilities.
-- Do not introduce Python unless a future ML/data-processing requirement genuinely justifies it.
-- Do not introduce microservices or unnecessary infrastructure.
-
-ARCHITECTURAL PRINCIPLES:
-1. Deterministic business logic must remain deterministic.
-2. AI must interpret and assist; it must not replace authoritative business rules.
-3. Financial calculations must use integer Paise.
-4. Ledger transactions are authoritative financial truth.
-5. Historical records must not be destroyed merely to update current state.
-6. User ownership must be enforced server-side.
-7. No client-supplied userId may override authoritative identity.
-8. Database migrations must preserve existing data.
-9. Migration failures must fail closed rather than silently continue.
-10. Production persistence must never silently fall back to ephemeral storage.
-11. Business logic belongs in services, not React components.
-12. APIs must have explicit validation and response contracts.
-13. Every significant feature requires automated regression tests.
-14. Do not modify main unless explicitly instructed.
-15. Work incrementally and preserve existing working features.
-
-CORE SYSTEMS TO IMPLEMENT:
-
-1. Doctrine Engine
-- Doctrine principles
-- Life areas
-- Vision
-- Objectives
-- Goals
-- Milestones
-- Priorities
-- Constraints
-- Non-negotiables
-
-2. Goal Engine
-- Goal hierarchy
-- Goal states
-- Deadlines
-- Progress
-- Dependencies
-- Goal history
-
-3. Task Engine
-- One-time tasks
-- Recurring tasks
-- Flexible tasks
-- Scheduled tasks
-- Priorities
-- Dependencies
-- Execution history
-- Deferral
-- Skipping
-- Failure tracking
-
-4. Schedule Engine
-- Time blocks
-- Daily schedules
-- Weekly schedules
-- Work/college schedules
-- Travel
-- Flexible availability
-
-5. Habit Engine
-- Recurring habits
-- Streaks
-- Adherence
-- Historical execution
-- Failure/recovery analysis
-
-6. Fitness System
-- Workouts
-- Exercises
-- Sets/reps/weight
-- Progressive overload
-- Sessions
-- Body measurements
-- Historical progress
-
-7. Skincare/Grooming System
-- Morning routines
-- Evening routines
-- Grooming tasks
-- Hair-care routines
-- Execution history
-- No medical diagnosis system
-
-8. Nutrition System
-- Calorie targets
-- Macro targets
-- Meals
-- Food quantities
-- Daily totals
-- Historical adherence
-
-9. Resource Intelligence
-- Inventory
-- Minimum stock
-- Consumption events
-- Purchase events
-- Usage rates
-- Depletion forecasts
-- Purchase recommendations
-
-10. Cart
-- Independent purchase intent
-- Priority
-- Quantity
-- Estimated price
-- Purchase date
-- Goal/resource relationships
-- Defer/delete/edit
-- Cart must NOT alter financial cash
-
-11. Purchase System
-- Actual purchase events
-- Historical records
-- Purchase-to-expense linkage
-
-12. Financial System
-- Income
-- Expense
-- Reserve
-- Allocation
-- Financial goals
-- Budget
-- Financial preferences
-- Financial decision state
-
-13. Financial Engine
-- Net cash
-- Spendable cash
-- Reserves
-- Allocations
-- Discretionary funds
-- Obligations
-- Deficit preservation
-- Goal priority
-- Deterministic decision state
-
-14. Weekly Review
-- Weekly execution
-- Goal progress
-- Physical progress
-- Financial progress
-- Resource analysis
-- Missed commitments
-- Next-week plan
-
-15. Progress Photos
-- Physique
-- Face
-- Hair
-- Historical comparison
-- Side-by-side comparison
-- AI-assisted constrained visual analysis
-- Privacy-safe persistence
-
-16. Project Management
-- Projects
-- Milestones
-- Tasks
-- Dependencies
-- Progress
-- Risks
-- Technology stack
-
-17. Knowledge System
-- Notes
-- Documents
-- References
-- Project knowledge
-- Decisions
-- Lessons
-- Search
-- Future semantic retrieval
-
-18. Analytics
-- Execution analytics
-- Goal analytics
-- Habit analytics
-- Financial analytics
-- Resource analytics
-- Physical progress analytics
-
-19. AI Intelligence
-- Daily planning assistance
-- Weekly summaries
-- Pattern interpretation
-- Goal-risk explanations
-- Financial explanations
-- Resource explanations
-- Project planning
-- Personal context retrieval
-
-20. Future ML
-Do not train a custom ML model prematurely.
-First collect structured historical data.
-Later support:
-- Task completion prediction
-- Habit adherence prediction
-- Optimal scheduling
-- Goal risk prediction
-- Personalized recommendations
-
-QUALITY REQUIREMENTS:
-
-Every feature must include:
-- Database schema
-- Migration
-- Service layer
-- API
-- UI
-- Validation
-- Unit tests
-- Integration tests
-- Security/isolation tests
-- Regression tests
-- Localhost verification
-
-Before declaring a task complete:
-1. Run the relevant tests.
-2. Run the full test suite.
-3. Run the production build.
-4. Run git diff --check.
-5. Verify the feature manually on localhost.
-6. Confirm existing features remain functional.
-7. Report exactly what changed.
-8. Do not proceed to the next task until the current task is stable.
-
-WORKFLOW:
-First analyze the supplied Doctrine ZIP.
-Do NOT immediately modify code.
-
-Produce:
-1. Current architecture map.
-2. Existing feature inventory.
-3. Database/schema inventory.
-4. API inventory.
-5. Frontend component inventory.
-6. Existing AI/ML capabilities.
-7. Existing production infrastructure.
-8. Completed blueprint items.
-9. Partially completed blueprint items.
-10. Missing blueprint items.
-11. Conflicting implementations.
-12. Technical debt.
-13. Security risks.
-14. Recommended implementation order.
-
-Then propose exactly ONE next implementation task.
-
-Do not implement multiple major features simultaneously.
-
-The Doctrine blueprint is the destination.
-The existing ZIP is simply the current starting point.
+Activity
+→ Execution
+→ Event
+→ Automatic side effects
 ```
 
-## Final development philosophy
+This is the most important automation layer.
 
-The most important thing is that **we don't let "finishing the code" become the goal**.
+---
 
-The goal is:
+## Phase 3 — Automatic resource consumption
 
-> **Build Doctrine exactly as a coherent personal operating system.**
+Implement:
+
+```text
+Activity
+→ Resource consumption rules
+→ Consumption events
+→ Stock update
+→ Forecast update
+```
+
+This should eliminate the current manual resource bookkeeping problem.
+
+---
+
+## Phase 4 — Complete financial lifecycle
+
+Finish:
+
+```text
+Income
+→ Ledger
+→ Reserve
+→ Allocation
+→ Cart
+→ Purchase
+→ Expense
+→ Financial state
+```
+
+and integrate it with resources.
+
+---
+
+## Phase 5 — Progress intelligence
+
+Connect:
+
+```text
+Executions
++
+Goals
++
+Milestones
++
+Results
+```
+
+into automatically derived progress.
+
+---
+
+## Phase 6 — Decision engine
+
+Build:
+
+```text
+Current state
++
+Priorities
++
+Constraints
++
+History
++
+Forecasts
+```
+
+into:
+
+> **What Now?**
+
+---
+
+## Phase 7 — Monitoring UI
+
+Create the small number of views necessary to monitor:
+
+- Today,
+- Goals,
+- Resources,
+- Finance,
+- Progress,
+- Intelligence.
+
+No unnecessary dashboards.
+
+---
+
+## Phase 8 — Historical analytics
+
+Build:
+
+- consistency trends,
+- goal trends,
+- financial trends,
+- resource trends,
+- behavioral patterns.
+
+---
+
+## Phase 9 — AI advisor
+
+Connect AI to structured Doctrine state.
+
+AI should explain and reason over reliable data.
+
+---
+
+## Phase 10 — ML
+
+Only after sufficient historical data exists.
+
+Implement only models with demonstrable value.
+
+---
+
+## Phase 11 — Production
+
+Only after local completion:
+
+- authentication,
+- production security,
+- PostgreSQL production configuration,
+- persistent storage,
+- Vercel configuration,
+- environment variables,
+- monitoring,
+- deployment,
+- production smoke tests,
+- final audit.
+
+---
+
+# 82. DEFINITION OF DONE FOR DOCTRINE
+
+Doctrine is not "finished" when all screens exist.
+
+It is approaching completion when the following statement is true:
+
+> **I can live my normal life, perform my planned activities, make purchases, consume resources, pursue goals, and execute my routines without constantly maintaining Doctrine manually—and Doctrine can reliably understand what happened, update the relevant state, identify problems, and tell me what matters next.**
+
+That is the actual product.
+
+**Doctrine is therefore not a tracker.**
+
+It is an **automated personal management and decision system whose complexity exists underneath the interface so that the user's life becomes simpler, not more complicated.**

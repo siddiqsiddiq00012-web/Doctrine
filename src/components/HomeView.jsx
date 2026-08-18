@@ -21,6 +21,7 @@ export const HomeView = () => {
   const { setActiveTab, getTodayStr, userPreferences, user, goalHierarchy, adaptationState } = useApp();
 
   const [dashboardData, setDashboardData] = useState(null);
+  const [intelligenceData, setIntelligenceData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -36,19 +37,28 @@ export const HomeView = () => {
         return `${y}-${m}-${dd}`;
       })();
 
-      const res = await fetch(`/api/dashboard?date=${todayStr}`, { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
+      const [dashRes, intelRes] = await Promise.all([
+        fetch(`/api/dashboard?date=${todayStr}`, { credentials: 'include' }),
+        fetch(`/api/dashboard/intelligence?date=${todayStr}`, { credentials: 'include' }).catch(() => null)
+      ]);
+
+      if (dashRes.ok) {
+        const data = await dashRes.json();
         setDashboardData(data);
-      } else if (res.status === 401) {
+      } else if (dashRes.status === 401) {
         setError('Active session required. Please sign in to view your Command Center.');
-      } else if (res.status === 404) {
-        setError('Backend dashboard route not found (404). Please restart your backend Node server (node server/index.js) so Express loads the new /api/dashboard endpoint.');
       } else {
-        const text = await res.text().catch(() => '');
+        const text = await dashRes.text().catch(() => '');
         let errData = {};
         try { errData = JSON.parse(text); } catch (e) {}
-        setError(errData.details || errData.message || errData.error || `Server Response Error (${res.status}): ${text.substring(0, 120) || 'Unable to communicate with backend server'}`);
+        setError(errData.details || errData.message || errData.error || `Server Response Error (${dashRes.status})`);
+      }
+
+      if (intelRes && intelRes.ok) {
+        const intelJson = await intelRes.json().catch(() => null);
+        if (intelJson?.success) {
+          setIntelligenceData(intelJson.intelligence);
+        }
       }
     } catch (e) {
       console.error('Dashboard fetch error:', e);
@@ -135,7 +145,7 @@ export const HomeView = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-              DOCTRINE COMMAND CENTER • {formattedDate}
+              {formattedDate}
             </div>
             <h1 style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-0.6px', marginTop: '4px', color: 'var(--text-primary)' }}>
               Welcome back, {displayName}
@@ -165,7 +175,7 @@ export const HomeView = () => {
         </div>
       </div>
 
-      {/* ADAPTIVE EXECUTION COMMAND CENTER CARD */}
+      {/* ADAPTIVE EXECUTION STATUS CARD */}
       <div className="card interactive" onClick={() => setActiveTab('today')} style={{
         background: 'var(--bg-card)',
         borderColor: 'var(--accent-purple)',
@@ -204,7 +214,57 @@ export const HomeView = () => {
         </div>
       </div>
 
-      {/* DYNAMIC HIGHEST-PRIORITY ACTION BANNER */}
+      {/* DECISIONS & RECOMMENDATIONS CARD */}
+      {intelligenceData && (
+        <div className="card" style={{
+          background: 'var(--bg-card)',
+          borderColor: 'var(--accent-purple)',
+          borderLeft: '4px solid var(--accent-purple)',
+          padding: '18px 20px',
+          marginBottom: '16px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent-purple)', textTransform: 'uppercase', letterSpacing: '0.8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Sparkles size={14} /> SYSTEM DECISIONS & RECOMMENDATIONS
+            </div>
+            <div className="badge badge-purple" style={{ fontSize: '11px' }}>
+              Confidence {Math.round((intelligenceData.confidence || 0.95) * 100)}%
+            </div>
+          </div>
+
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', lineHeight: '1.5', marginBottom: '12px' }}>
+            {intelligenceData.summary}
+          </div>
+
+          {Array.isArray(intelligenceData.recommendations) && intelligenceData.recommendations.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+              {intelligenceData.recommendations.map((rec, i) => (
+                <div key={i} style={{
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  background: 'var(--bg-app)',
+                  border: '1px solid var(--border-color)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '10px'
+                }}>
+                  <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
+                    <strong style={{ display: 'block', fontSize: '13px' }}>{rec.action}</strong>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{rec.reason}</span>
+                  </div>
+
+                  {!rec.automated && (
+                    <span className="badge badge-warning" style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>
+                      ACTION REQUIRED
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {primaryAction && (
         <div className="card interactive" onClick={() => setActiveTab(primaryAction.targetTab)} style={{
           background: 'var(--bg-card)',
@@ -483,7 +543,7 @@ export const HomeView = () => {
 
               {weeklyReview.isSunday && (
                 <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border-color)', fontSize: '12px' }}>
-                  <strong>Sunday Review Status:</strong> {weeklyReview.isCompleted ? '✓ Completed' : 'Pending Review'}
+                  <strong>Weekly Summary Status:</strong> {weeklyReview.isCompleted ? '✓ Completed' : 'Pending Review'}
                 </div>
               )}
             </div>

@@ -166,157 +166,157 @@ export const SettingsView = () => {
         </div>
       </div>
 
-      {/* 3. DISPLAY PREFERENCES SECTION */}
+      {/* 3. ADVANCED PRESENTATION & DISPLAY PREFERENCES (DEPRIORITIZED COLLAPSIBLE SECTION) */}
       <div style={{ marginBottom: '28px' }}>
-        <h2 style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-tertiary)', marginBottom: '10px', paddingLeft: '4px' }}>
-          Display Preferences
-        </h2>
-
-        <div style={{
+        <details style={{
           backgroundColor: 'var(--bg-card)',
           borderRadius: '14px',
           border: '1px solid var(--border-color)',
           overflow: 'hidden'
         }}>
-          {/* Time Format Row (Standardized on 12-Hour AM/PM) */}
-          <div style={{
+          <summary style={{
             padding: '16px',
+            fontSize: '13px',
+            fontWeight: 600,
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+            userSelect: 'none',
             display: 'flex',
-            justifyContent: 'space-between',
             alignItems: 'center',
-            borderBottom: '1px solid var(--border-color)'
+            justifyContent: 'space-between'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Clock size={18} color="var(--text-secondary)" />
-              <div>
-                <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>Time Format</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Standardized on 12-hour AM/PM format (e.g. 8:30 PM)</div>
-              </div>
-            </div>
+            <span>Advanced System & Display Preferences</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Expand to configure</span>
+          </summary>
 
-            <span style={{
-              fontSize: '12px',
-              fontWeight: 600,
-              padding: '4px 10px',
-              borderRadius: '12px',
-              backgroundColor: 'var(--accent-blue-subtle)',
-              color: 'var(--accent-blue)'
+          <div style={{ padding: '0 16px 16px 16px', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '16px' }}>
+            {/* Time Format Row */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
             }}>
-              12-Hour AM/PM
-            </span>
-          </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Clock size={18} color="var(--text-secondary)" />
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Time Format</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Standardized 12-hour AM/PM format (e.g. 8:30 PM)</div>
+                </div>
+              </div>
 
-          {/* Week Start Row */}
-          <div style={{
-            padding: '16px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Calendar size={18} color="var(--text-secondary)" />
-              <div>
-                <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>First Day of Week</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Calendar view start day</div>
+              <span style={{
+                fontSize: '12px',
+                fontWeight: 600,
+                padding: '4px 10px',
+                borderRadius: '12px',
+                backgroundColor: 'var(--accent-blue-subtle)',
+                color: 'var(--accent-blue)'
+              }}>
+                12-Hour AM/PM
+              </span>
+            </div>
+
+            {/* Week Start Row */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Calendar size={18} color="var(--text-secondary)" />
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>First Day of Week</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Calendar view start day</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button
+                  onClick={() => handleUpdateSetting('weekStart', 'MONDAY')}
+                  disabled={saving}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: currentWeekStart === 'MONDAY' ? 'var(--accent-blue-subtle)' : 'transparent',
+                    color: currentWeekStart === 'MONDAY' ? 'var(--accent-blue)' : 'var(--text-secondary)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Monday
+                </button>
+                <button
+                  onClick={() => handleUpdateSetting('weekStart', 'SUNDAY')}
+                  disabled={saving}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: currentWeekStart === 'SUNDAY' ? 'var(--accent-blue-subtle)' : 'transparent',
+                    color: currentWeekStart === 'SUNDAY' ? 'var(--accent-blue)' : 'var(--text-secondary)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Sunday
+                </button>
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button
-                onClick={() => handleUpdateSetting('weekStart', 'MONDAY')}
-                disabled={saving}
-                style={{
-                  padding: '6px 12px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: currentWeekStart === 'MONDAY' ? 'var(--accent-blue-subtle)' : 'transparent',
-                  color: currentWeekStart === 'MONDAY' ? 'var(--accent-blue)' : 'var(--text-secondary)',
-                  cursor: 'pointer'
-                }}
-              >
-                Monday
-              </button>
-              <button
-                onClick={() => handleUpdateSetting('weekStart', 'SUNDAY')}
-                disabled={saving}
-                style={{
-                  padding: '6px 12px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  backgroundColor: currentWeekStart === 'SUNDAY' ? 'var(--accent-blue-subtle)' : 'transparent',
-                  color: currentWeekStart === 'SUNDAY' ? 'var(--accent-blue)' : 'var(--text-secondary)',
-                  cursor: 'pointer'
-                }}
-              >
-                Sunday
-              </button>
+            {/* Reduce Motion Row */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Eye size={18} color="var(--text-secondary)" />
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Reduce Motion</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Minimize UI transition animations</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button
+                  onClick={() => handleUpdateSetting('reducedMotion', 'system')}
+                  disabled={saving}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: currentReducedMotion === 'system' ? 'var(--accent-blue-subtle)' : 'transparent',
+                    color: currentReducedMotion === 'system' ? 'var(--accent-blue)' : 'var(--text-secondary)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Default
+                </button>
+                <button
+                  onClick={() => handleUpdateSetting('reducedMotion', 'reduced')}
+                  disabled={saving}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: currentReducedMotion === 'reduced' ? 'var(--accent-blue-subtle)' : 'transparent',
+                    color: currentReducedMotion === 'reduced' ? 'var(--accent-blue)' : 'var(--text-secondary)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Reduced
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* 4. ACCESSIBILITY SECTION */}
-      <div style={{ marginBottom: '28px' }}>
-        <h2 style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-tertiary)', marginBottom: '10px', paddingLeft: '4px' }}>
-          Accessibility
-        </h2>
-
-        <div style={{
-          backgroundColor: 'var(--bg-card)',
-          borderRadius: '14px',
-          border: '1px solid var(--border-color)',
-          padding: '16px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Eye size={18} color="var(--text-secondary)" />
-            <div>
-              <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>Reduce Motion</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Minimize UI transition animations</div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <button
-              onClick={() => handleUpdateSetting('reducedMotion', 'system')}
-              disabled={saving}
-              style={{
-                padding: '6px 12px',
-                fontSize: '12px',
-                fontWeight: 600,
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: currentReducedMotion === 'system' ? 'var(--accent-blue-subtle)' : 'transparent',
-                color: currentReducedMotion === 'system' ? 'var(--accent-blue)' : 'var(--text-secondary)',
-                cursor: 'pointer'
-              }}
-            >
-              Default
-            </button>
-            <button
-              onClick={() => handleUpdateSetting('reducedMotion', 'reduced')}
-              disabled={saving}
-              style={{
-                padding: '6px 12px',
-                fontSize: '12px',
-                fontWeight: 600,
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: currentReducedMotion === 'reduced' ? 'var(--accent-blue-subtle)' : 'transparent',
-                color: currentReducedMotion === 'reduced' ? 'var(--accent-blue)' : 'var(--text-secondary)',
-                cursor: 'pointer'
-              }}
-            >
-              Reduced
-            </button>
-          </div>
-        </div>
+        </details>
       </div>
 
       {/* 5. DATA & PRIVACY SECTION */}

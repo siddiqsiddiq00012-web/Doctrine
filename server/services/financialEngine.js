@@ -1,4 +1,6 @@
 import { eq, and, sql, asc } from 'drizzle-orm';
+import cryptoNative from 'node:crypto';
+import { db } from '../db/index.js';
 import {
   financialTransactions,
   financialGoals,
@@ -104,6 +106,14 @@ export async function calculateFinancialState(db, userId, targetDateStr = null) 
   const requiredTodayTransportPaise = isWorkday ? Number(pref.transportDailyCostPaise || 5000) : 0;
   const isReserveDay = dayOfWeek === pref.transportReserveDay;
   const reserveRequiredTransportPaise = isReserveDay ? Number(pref.transportReserveAmountPaise || 10000) : 0;
+  const todayCommitmentsPaise = requiredTodayTransportPaise + reserveRequiredTransportPaise;
+
+  // Step 9.9 — Morning Financial Plan (Derived projected capacity independent of authoritative ledger)
+  // Planned Capacity = Spendable Cash + Expected Workday Income - Mandatory Commitments
+  const plannedCapacityPaise = Math.max(
+    0,
+    spendableCashPaise + todayExpectedIncomePaise - todayCommitmentsPaise
+  );
 
   let transportReason = 'Non-workday / no transport obligation';
   if (isWorkday && isReserveDay) {
@@ -194,18 +204,36 @@ export async function calculateFinancialState(db, userId, targetDateStr = null) 
   INITIAL_INVENTORY.forEach((item) => {
     const stockRec = stockMap.get(item.id);
     const currentQty = stockRec ? stockRec.currentQty : item.currentQty;
+    const estPricePaise = item.estimatedPrice ? Math.round(item.estimatedPrice * 100) : 0;
 
     // Resource purchase urgency: Only flag if stock <= minStockLevel or currentQty <= 0
     if (currentQty <= (item.minStockLevel || 0) || currentQty <= 0) {
+      const isUrgentCritical = currentQty <= 0;
+      // Step 9.9: Evaluate affordability against planning available capacity (actual cash + expected income - commitments)
+      const planningAvailablePaise = Math.max(spendableCashPaise, plannedCapacityPaise);
+      const isAffordableInPlan = planningAvailablePaise >= estPricePaise && estPricePaise > 0;
+      const isAffordableActual = spendableCashPaise >= estPricePaise && estPricePaise > 0;
+      const planningDiffPaise = estPricePaise - planningAvailablePaise;
+
       resourceNeeds.push({
         resourceId: item.id,
         itemName: item.name,
         category: item.category,
         currentQty,
         minStockLevel: item.minStockLevel || 0,
-        estimatedPricePaise: item.estimatedPrice ? Math.round(item.estimatedPrice * 100) : 0,
+        estimatedPricePaise: estPricePaise,
         neededNow: true,
-        reason: currentQty <= 0 ? 'Out of stock' : 'At or below minimum stock level'
+        urgency: isUrgentCritical ? 'CRITICAL' : 'HIGH',
+        isAffordable: isAffordableInPlan,
+        isAffordableActual,
+        reason: isUrgentCritical ? 'Out of stock' : 'At or below minimum stock level',
+        affordabilityReason: isAffordableActual
+          ? `Affordable with current spendable cash (₹${(spendableCashPaise / 100).toFixed(0)} available)`
+          : isAffordableInPlan
+          ? `Affordable within today's morning plan (₹${(plannedCapacityPaise / 100).toFixed(0)} planned capacity)`
+          : estPricePaise === 0
+          ? 'No estimated price configured'
+          : `Deficit of ₹${(planningDiffPaise / 100).toFixed(0)} against today's plan`
       });
     }
   });
@@ -232,7 +260,14 @@ export async function calculateFinancialState(db, userId, targetDateStr = null) 
       spendableCashPaise,
       reservedPaise: totalReservePaise,
       allocatedPaise: totalAllocationPaise,
-      discretionaryPaise
+      discretionaryPaise,
+      plannedCapacityPaise
+    },
+
+    morningPlan: {
+      expectedIncomePaise: todayExpectedIncomePaise,
+      todayCommitmentsPaise,
+      plannedCapacityPaise
     },
 
     income: {
@@ -263,4 +298,56 @@ export async function calculateFinancialState(db, userId, targetDateStr = null) 
       highestPriorityGoalId
     }
   };
+}
+
+/**
+ * AUTOMATION HANDLER: WORKDAY_COMPLETED
+ * Automatically inserts authoritative income transaction into financial_transactions
+ * upon workday completion. Idempotent per (userId, date).
+ */
+export async function handleWorkdayCompletedIncome(event, dbOverride = null) {
+  if (!event || !event.userId) {
+    throw new Error('[handleWorkdayCompletedIncome] Invalid event object');
+  }
+
+  const database = dbOverride || db;
+  const userId = event.userId;
+  const targetDateStr = event.payload?.date || new Date().toISOString().split('T')[0];
+
+  // 1. Calculate financial state for date
+  const finState = await calculateFinancialState(database, userId, targetDateStr);
+
+  if (!finState.income.isWorkday || finState.income.todayExpectedPaise <= 0) {
+    return { success: true, recorded: false, reason: 'Not a workday or expected income is 0' };
+  }
+
+  // 2. Idempotency Check: Verify if income for this date was already recorded
+  const userTransactions = await database
+    .select()
+    .from(financialTransactions)
+    .where(and(eq(financialTransactions.userId, userId), eq(financialTransactions.type, 'INCOME')));
+
+  const alreadyRecorded = userTransactions.some((tx) => tx.date === targetDateStr);
+
+  if (alreadyRecorded) {
+    return { success: true, recorded: false, reason: 'Workday income already recorded for date' };
+  }
+
+  // 3. Record Authoritative Financial Income Transaction into financial_transactions
+  const nowIso = new Date().toISOString();
+  const newIncomeTx = {
+    id: `tx_inc_${cryptoNative.randomUUID()}`,
+    userId,
+    type: 'INCOME',
+    amountPaise: finState.income.todayExpectedPaise,
+    date: targetDateStr,
+    description: `Workday Income (${finState.dayOfWeek})`,
+    category: 'WORKDAY_INCOME',
+    createdAt: nowIso,
+    updatedAt: nowIso
+  };
+
+  await database.insert(financialTransactions).values(newIncomeTx);
+
+  return { success: true, recorded: true, transaction: newIncomeTx };
 }

@@ -415,7 +415,7 @@ export const SundayReviewView = () => {
   };
 
   return (
-    <div style={{ maxWidth: '780px', margin: '0 auto', paddingBottom: '40px' }}>
+    <div className="sunday-review-view">
       
       {/* Sub-tab Navigation */}
       <div className="day-tabs" style={{ marginBottom: '20px', flexWrap: 'wrap' }}>
@@ -423,7 +423,7 @@ export const SundayReviewView = () => {
           className={`day-tab ${activeTab === 'current' ? 'active' : ''}`}
           onClick={() => setActiveTab('current')}
         >
-          Sunday Weekly Review
+          Weekly Summary
         </button>
         <button
           className={`day-tab ${activeTab === 'compare' ? 'active' : ''}`}
@@ -449,7 +449,7 @@ export const SundayReviewView = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Award size={20} color="var(--accent-amber)" />
                   <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                    Sunday Weekly Review
+                    Weekly Summary
                   </h2>
                   <span className="badge badge-warning">Weekly Ritual</span>
                 </div>
@@ -505,9 +505,9 @@ export const SundayReviewView = () => {
           {/* STEP 1: PHYSICAL MEASUREMENTS */}
           {step === 1 && (
             <div className="card" style={{ padding: '24px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>1. Sunday Physical Measurements</h3>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>1. Weekly Physical Measurements</h3>
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-                Record morning fasted body metrics. Deltas are calculated automatically against previous Sunday records.
+                Record morning fasted body metrics. Deltas are calculated automatically against previous weekly records.
               </p>
 
               <div className="grid-2">
@@ -676,7 +676,7 @@ export const SundayReviewView = () => {
           {/* STEP 3: FEATURE 13 — PROGRESS PHOTOS WITH PREVIEW & CONSISTENCY GUIDANCE */}
           {step === 3 && (
             <div className="card" style={{ padding: '24px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>3. Standardized Sunday Progress Photos</h3>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>3. Standardized Weekly Progress Photos</h3>
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
                 Upload standardized photos for weekly visual tracking. Photos are stored securely on your server filesystem.
               </p>
@@ -912,7 +912,7 @@ export const SundayReviewView = () => {
             <div className="card" style={{ padding: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Sparkles size={20} color="var(--accent-purple)" /> Sunday AI Executive Summary
+                  <Sparkles size={20} color="var(--accent-purple)" /> Weekly AI Executive Summary
                 </h3>
                 <button
                   className="btn btn-secondary btn-sm"
@@ -947,7 +947,7 @@ export const SundayReviewView = () => {
                     disabled={generatingAi}
                   >
                     {generatingAi ? <RefreshCw size={16} className="spin" /> : <Sparkles size={16} />}
-                    <span>Generate 10:00 PM Sunday AI Summary</span>
+                    <span>Generate Weekly AI Summary</span>
                   </button>
                 </div>
               )}

@@ -25,6 +25,10 @@ import financialRoutes from './routes/financial.js';
 import goalsRoutes from './routes/goals.js';
 import { start10pmSummaryScheduler } from './jobs/summaryScheduler.js';
 import { generateDailySummary } from './services/aiService.js';
+import { initializeAutomationHandlers } from './services/automationBootstrap.js';
+
+// Initialize domain automation handlers
+initializeAutomationHandlers();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -204,8 +208,10 @@ const handleDbDiag = async (req, res) => {
   }
 
   try {
+    const postgresUrl = process.env.POSTGRES_URL || (process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith('postgres://') || process.env.DATABASE_URL.startsWith('postgresql://')) ? process.env.DATABASE_URL : null);
     const tursoUrl = process.env.TURSO_DATABASE_URL || '';
-    const isTursoConfigured = Boolean(tursoUrl && (tursoUrl.startsWith('libsql://') || tursoUrl.startsWith('https://')));
+    const isPostgresConfigured = Boolean(postgresUrl);
+    const isTursoConfigured = Boolean(!isPostgresConfigured && tursoUrl && (tursoUrl.startsWith('libsql://') || tursoUrl.startsWith('https://')));
     const isTursoTokenConfigured = Boolean(process.env.TURSO_AUTH_TOKEN);
 
     // Verify DB connectivity safely using standard count query
@@ -215,8 +221,9 @@ const handleDbDiag = async (req, res) => {
 
     res.json({
       status: 'OK',
-      driver: isTursoConfigured ? 'turso' : 'sqlite',
+      driver: isPostgresConfigured ? 'postgres' : (isTursoConfigured ? 'turso' : 'sqlite'),
       isProduction,
+      postgresConfigured: isPostgresConfigured,
       tursoUrlConfigured: isTursoConfigured,
       tursoTokenConfigured: isTursoTokenConfigured,
       reachable: true,

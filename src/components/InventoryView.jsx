@@ -64,6 +64,9 @@ export const InventoryView = () => {
   };
 
   const getStockBadge = (item) => {
+    if (item.inCart) {
+      return <span className="badge badge-purple" style={{ background: '#8B5CF6', color: '#FFF' }}>✓ DOCTRINE QUEUED IN CART</span>;
+    }
     if (item.status === 'NOT STARTED' || item.currentQty <= 0) {
       return <span className="badge badge-danger">OUT OF STOCK</span>;
     }
@@ -163,24 +166,7 @@ export const InventoryView = () => {
   return (
     <div className="inventory-view workspace-fluid" style={{ paddingBottom: '40px' }}>
       
-      {/* DOCTRINE IMMUTABILITY BANNER */}
-      <div style={{
-        padding: '12px 16px',
-        borderRadius: '12px',
-        backgroundColor: 'var(--accent-blue-subtle)',
-        border: '1px solid var(--accent-blue)',
-        marginBottom: '16px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        fontSize: '13px',
-        color: 'var(--accent-blue)'
-      }}>
-        <ShieldCheck size={18} style={{ flexShrink: 0 }} />
-        <span>
-          <strong>Doctrine Resource Intelligence & Forecasting:</strong> Requirements are derived directly from your Doctrine plan and consumption logs. Track stock, forecast depletion dates, and plan purchases.
-        </span>
-      </div>
+
 
       {/* ERROR MESSAGE NOTIFICATION */}
       {errorMessage && (
@@ -323,6 +309,8 @@ export const InventoryView = () => {
                     </div>
                   </div>
 
+
+
                   {/* FEATURE 11: COMPACT FORECAST BADGE ON RESOURCE CARD */}
                   {forecast && (
                     <div style={{
@@ -355,25 +343,7 @@ export const InventoryView = () => {
                     </div>
                   )}
 
-                  {/* Quick Usage & Stock Actions */}
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      style={{ flex: 1, borderRadius: '8px', fontSize: '12px' }}
-                      onClick={() => handleQuickUse(item, 1)}
-                    >
-                      <Minus size={12} /> Use 1 {item.unit}
-                    </button>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      style={{ flex: 1, borderRadius: '8px', fontSize: '12px' }}
-                      onClick={() => handleQuickAdd(item, 1)}
-                    >
-                      <Plus size={12} /> Add 1 {item.unit}
-                    </button>
-                  </div>
-
-                  {/* Custom Stock Adjustment Form */}
+                  {/* DEMOTED PHYSICAL STOCK CORRECTION FORM */}
                   {adjustingItemId === item.id ? (
                     <div style={{
                       padding: '10px',
@@ -382,6 +352,9 @@ export const InventoryView = () => {
                       border: '1px solid var(--border-color)',
                       marginBottom: '12px'
                     }}>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', marginBottom: '6px' }}>
+                        PHYSICAL REALITY CORRECTION
+                      </div>
                       <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
                         <button
                           type="button"
@@ -389,7 +362,7 @@ export const InventoryView = () => {
                           style={{ flex: 1, padding: '4px', fontSize: '12px' }}
                           onClick={() => setAdjustType('ADD')}
                         >
-                          + Record Purchase
+                          + Add Stock
                         </button>
                         <button
                           type="button"
@@ -397,7 +370,7 @@ export const InventoryView = () => {
                           style={{ flex: 1, padding: '4px', fontSize: '12px' }}
                           onClick={() => setAdjustType('USE')}
                         >
-                          - Record Usage
+                          - Adjust Down
                         </button>
                       </div>
 
@@ -406,7 +379,7 @@ export const InventoryView = () => {
                           type="number"
                           step="any"
                           className="form-input"
-                          placeholder={`Amount (${item.unit})`}
+                          placeholder={`Correction amount (${item.unit})`}
                           value={adjustAmount}
                           onChange={e => setAdjustAmount(e.target.value)}
                           style={{ padding: '6px 10px', fontSize: '13px' }}
@@ -418,16 +391,22 @@ export const InventoryView = () => {
                         >
                           Save
                         </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => setAdjustingItemId(null)}
+                        >
+                          Cancel
+                        </button>
                       </div>
                     </div>
                   ) : (
                     <div style={{ marginBottom: '12px' }}>
                       <button
-                        className="btn btn-secondary btn-sm"
-                        style={{ width: '100%', borderRadius: '8px', fontSize: '12px' }}
+                        className="btn btn-ghost btn-sm"
+                        style={{ width: '100%', borderRadius: '8px', fontSize: '11px', color: 'var(--text-tertiary)', border: '1px dashed var(--border-color)' }}
                         onClick={() => { setAdjustingItemId(item.id); setAdjustType('ADD'); setAdjustAmount(''); }}
                       >
-                        Custom Stock Event (+ / -)
+                        Correct Physical Stock (Reality Check)
                       </button>
                     </div>
                   )}

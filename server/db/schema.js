@@ -73,6 +73,56 @@ export const dailyExecutions = sqliteTable('daily_executions', {
   dateLookupIdx: index('daily_executions_date_idx').on(table.date),
 }));
 
+// Tasks Table (Section 4: Reusable Task Definitions)
+export const tasks = sqliteTable('tasks', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  taskKey: text('task_key').notNull(),
+  title: text('title').notNull(),
+  description: text('description').default('').notNull(),
+  category: text('category').notNull(),
+  defaultPriority: integer('default_priority').notNull(),
+  defaultDurationMinutes: integer('default_duration_minutes').notNull(),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userTaskKeyIdx: uniqueIndex('tasks_user_task_key_idx').on(table.userId, table.taskKey),
+  userIdx: index('tasks_user_idx').on(table.userId),
+}));
+
+// Schedules Table (Section 4: Configurable Weekly & Date-Range Schedules)
+export const schedules = sqliteTable('schedules', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  isDefault: integer('is_default', { mode: 'boolean' }).default(false).notNull(),
+  activeFromDate: text('active_from_date'), // YYYY-MM-DD
+  activeToDate: text('active_to_date'), // YYYY-MM-DD
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userIdx: index('schedules_user_idx').on(table.userId),
+}));
+
+// Schedule Entries Table (Section 4: Individual Task Schedule Mappings)
+export const scheduleEntries = sqliteTable('schedule_entries', {
+  id: text('id').primaryKey(),
+  scheduleId: text('schedule_id').notNull().references(() => schedules.id, { onDelete: 'cascade' }),
+  taskId: text('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
+  timingType: text('timing_type').notNull(), // 'FIXED' | 'FLEXIBLE'
+  recurrencePattern: text('recurrence_pattern').notNull(), // 'DAILY' | 'WEEKLY' | 'DATE_RANGE'
+  dayOfWeek: text('day_of_week'), // 'MONDAY'..'SUNDAY'
+  activeDate: text('active_date'), // YYYY-MM-DD
+  startMinutes: integer('start_minutes'),
+  endMinutes: integer('end_minutes'),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  schedDayIdx: index('schedule_entries_sched_day_idx').on(table.scheduleId, table.dayOfWeek),
+  taskIdx: index('schedule_entries_task_idx').on(table.taskId),
+}));
+
 // Task Executions Table
 export const taskExecutions = sqliteTable('task_executions', {
   id: text('id').primaryKey(),
@@ -84,12 +134,16 @@ export const taskExecutions = sqliteTable('task_executions', {
   completedAt: text('completed_at'),
   deferredToDate: text('deferred_to_date'), // YYYY-MM-DD target date for task carryover/rescheduling
   sourceTaskExecutionId: text('source_task_execution_id').references(() => taskExecutions.id, { onDelete: 'set null' }),
+  taskId: text('task_id').references(() => tasks.id, { onDelete: 'set null' }),
+  scheduleEntryId: text('schedule_entry_id').references(() => scheduleEntries.id, { onDelete: 'set null' }),
   createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
   updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
 }, (table) => ({
   dailyExecIdx: index('task_executions_daily_exec_idx').on(table.dailyExecutionId),
   taskKeyIdx: uniqueIndex('task_executions_key_idx').on(table.dailyExecutionId, table.taskKey),
   sourceTaskIdx: index('task_executions_source_task_idx').on(table.sourceTaskExecutionId),
+  taskIdIdx: index('task_executions_task_id_idx').on(table.taskId),
+  schedEntryIdx: index('task_executions_sched_entry_idx').on(table.scheduleEntryId),
 }));
 
 // Daily Adaptations Table (Section 3: Audit Log of Intra-Day Capacity Adaptations)
@@ -447,4 +501,58 @@ export const goalTaskMappings = sqliteTable('goal_task_mappings', {
   goalTaskIdx: index('goal_task_mappings_goal_task_idx').on(table.goalId, table.taskKey),
   milestoneIdx: index('goal_task_mappings_milestone_idx').on(table.milestoneId),
   userTaskIdx: index('goal_task_mappings_user_task_idx').on(table.userId, table.taskKey),
+}));
+
+// Task Resource Requirements Table (Task -> Resource Consumption Mapping)
+export const taskResourceRequirements = sqliteTable('task_resource_requirements', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  taskKey: text('task_key').notNull(),
+  taskId: text('task_id').references(() => tasks.id, { onDelete: 'set null' }),
+  resourceId: text('resource_id').notNull(),
+  quantityConsumed: real('quantity_consumed').notNull(),
+  unit: text('unit').notNull(),
+  isOptional: integer('is_optional', { mode: 'boolean' }).default(false).notNull(),
+  notes: text('notes').default('').notNull(),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+  updatedAt: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userTaskResIdx: uniqueIndex('task_res_req_user_task_res_idx').on(table.userId, table.taskKey, table.resourceId),
+  userTaskIdx: index('task_res_req_user_task_idx').on(table.userId, table.taskKey),
+  userResourceIdx: index('task_res_req_user_resource_idx').on(table.userId, table.resourceId),
+}));
+
+// Domain Events Table (System Event Audit Trail)
+export const domainEvents = sqliteTable('domain_events', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  eventType: text('event_type').notNull(),
+  sourceType: text('source_type').notNull(),
+  sourceId: text('source_id'),
+  payload: text('payload').notNull(), // Structured JSON string
+  correlationId: text('correlation_id').notNull(),
+  causationId: text('causation_id'),
+  schemaVersion: integer('schema_version').default(1).notNull(),
+  status: text('status').default('PUBLISHED').notNull(),
+  occurredAt: text('occurred_at').notNull(),
+  createdAt: text('created_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userTypeIdx: index('domain_events_user_type_idx').on(table.userId, table.eventType),
+  userCorrelationIdx: index('domain_events_user_corr_idx').on(table.userId, table.correlationId),
+  userOccurredIdx: index('domain_events_user_occ_idx').on(table.userId, table.occurredAt),
+}));
+
+// Automation Processing Logs Table (Per Event + Handler Idempotency Log)
+export const automationProcessingLogs = sqliteTable('automation_processing_logs', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  eventId: text('event_id').notNull().references(() => domainEvents.id, { onDelete: 'cascade' }),
+  handlerId: text('handler_id').notNull(),
+  status: text('status').notNull(), // 'COMPLETED' | 'FAILED' | 'SKIPPED'
+  errorDetails: text('error_details'),
+  executionDurationMs: integer('execution_duration_ms').default(0).notNull(),
+  processedAt: text('processed_at').default(sql`(CURRENT_TIMESTAMP)`).notNull(),
+}, (table) => ({
+  userIdempotencyIdx: uniqueIndex('auto_logs_user_evt_handler_idx').on(table.userId, table.eventId, table.handlerId),
+  userEventIdx: index('auto_logs_user_event_idx').on(table.userId, table.eventId),
 }));

@@ -8,15 +8,9 @@ import {
   Target,
   ShoppingBag,
   PackageCheck,
-  ShieldAlert,
-  ShieldCheck,
-  Info,
-  Lock,
-  ArrowUpRight,
-  TrendingDown,
-  Calendar,
   CheckCircle2,
-  Briefcase
+  Briefcase,
+  Plus
 } from 'lucide-react';
 
 /**
@@ -35,9 +29,11 @@ export function formatPaise(paise) {
 }
 
 export const BudgetView = () => {
+  const { setActiveTab } = useApp();
   const [financialState, setFinancialState] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [addingResourceMap, setAddingResourceMap] = useState({});
 
   const fetchFinancialState = useCallback(async () => {
     setLoading(true);
@@ -69,65 +65,57 @@ export const BudgetView = () => {
     fetchFinancialState();
   }, [fetchFinancialState]);
 
-  if (loading) {
+  const handleAddToCart = async (item) => {
+    const key = item.resourceId || item.itemName;
+    setAddingResourceMap(prev => ({ ...prev, [key]: true }));
+    try {
+      const payload = {
+        itemName: item.itemName,
+        quantity: item.suggestedPurchaseQty || 1,
+        estimatedPricePaise: item.estimatedPricePaise || 0,
+        resourceId: item.resourceId,
+        priority: item.urgency === 'CRITICAL' ? 1 : item.urgency === 'HIGH' ? 2 : 3
+      };
+      const res = await fetch('/api/financial/cart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        await fetchFinancialState();
+      }
+    } catch (err) {
+      console.error('Failed to add recommendation to cart:', err);
+    } finally {
+      setAddingResourceMap(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  if (loading && !financialState) {
     return (
-      <div className="workspace-fluid" style={{ padding: '40px 0', textAlign: 'center' }}>
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '12px',
-          padding: '16px 28px',
-          background: 'var(--bg-card)',
-          borderRadius: 'var(--radius-card)',
-          border: '1px solid var(--border-color)',
-          color: 'var(--text-secondary)',
-          boxShadow: 'var(--shadow-sm)'
-        }}>
-          <RefreshCw className="spin-animation" size={18} color="var(--accent-blue)" />
-          <span style={{ fontSize: '14px', fontWeight: 500 }}>Loading authoritative financial state...</span>
+      <div className="workspace-fluid" style={{ maxWidth: '840px', margin: '0 auto', padding: '40px 20px', textAlign: 'center' }}>
+        <div className="card" style={{ padding: '40px', color: 'var(--text-secondary)' }}>
+          <RefreshCw className="spin" size={24} style={{ margin: '0 auto 12px', display: 'block' }} />
+          Loading Financial Position...
         </div>
       </div>
     );
   }
 
-  if (error || !financialState) {
+  if (error && !financialState) {
     return (
-      <div className="workspace-fluid" style={{ padding: '40px 0' }}>
-        <div style={{
-          maxWidth: '520px',
-          margin: '0 auto',
-          padding: '28px',
-          background: 'var(--bg-card)',
-          borderRadius: 'var(--radius-card)',
-          border: '1px solid var(--border-color)',
-          textAlign: 'center',
-          boxShadow: 'var(--shadow-md)'
-        }}>
-          <AlertCircle size={40} color="var(--accent-red)" style={{ marginBottom: '12px' }} />
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
+      <div className="workspace-fluid" style={{ maxWidth: '840px', margin: '0 auto', padding: '40px 20px' }}>
+        <div className="card" style={{ padding: '30px', textAlign: 'center', borderColor: 'var(--accent-red)' }}>
+          <AlertCircle size={36} color="var(--accent-red)" style={{ margin: '0 auto 12px' }} />
+          <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
             Financial State Unavailable
           </h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '20px' }}>
-            {error || 'Unable to connect to financial service.'}
+          <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '16px' }}>
+            {error}
           </p>
-          <button
-            onClick={fetchFinancialState}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 20px',
-              background: 'var(--accent-blue)',
-              color: '#FFF',
-              border: 'none',
-              borderRadius: 'var(--radius-button)',
-              cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: '14px'
-            }}
-          >
-            <RefreshCw size={16} />
-            <span>Try Again</span>
+          <button className="btn btn-secondary" onClick={fetchFinancialState}>
+            <RefreshCw size={14} /> Retry
           </button>
         </div>
       </div>
@@ -141,569 +129,300 @@ export const BudgetView = () => {
     income = {},
     transport = {},
     goals = [],
-    upcomingObligations = [],
     resourceNeeds = [],
-    cartCommitments = [],
-    decisionState = {}
-  } = financialState;
+    cartCommitments = []
+  } = financialState || {};
 
-  // Determine status badge strictly from API state
-  let statusBadge = {
-    label: 'AVAILABLE',
-    text: `${formatPaise(cash.discretionaryPaise)} available for discretionary spending`,
-    color: 'var(--accent-green)',
-    bgColor: 'var(--accent-green-subtle)',
-    icon: ShieldCheck
-  };
-
-  if (cash.netCashPaise < 0) {
-    statusBadge = {
-      label: 'DEFICIT',
-      text: `${formatPaise(cash.netCashPaise)} financial deficit recorded`,
-      color: 'var(--accent-red)',
-      bgColor: 'var(--accent-red-subtle)',
-      icon: ShieldAlert
-    };
-  } else if (decisionState.blockedByObligations || cash.discretionaryPaise === 0) {
-    statusBadge = {
-      label: 'PROTECTED',
-      text: 'Today\'s available money is committed to obligations',
-      color: 'var(--accent-amber)',
-      bgColor: 'var(--accent-amber-subtle)',
-      icon: Lock
-    };
-  }
-
-  const StatusIcon = statusBadge.icon;
-  const highestGoal = goals.find(g => g.id === decisionState.highestPriorityGoalId) || goals[0];
+  // Build a Set of resource IDs or item names currently in cart
+  const activeCartResourceIds = new Set(
+    cartCommitments
+      .filter(c => c.status !== 'PURCHASED' && c.status !== 'CANCELLED')
+      .map(c => c.resourceId || c.itemName.toLowerCase())
+  );
 
   return (
-    <div className="workspace-fluid" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="budget-view" style={{ maxWidth: '840px', margin: '0 auto', paddingBottom: '40px' }}>
 
-      {/* 1. TOP HEADER & REFRESH BAR */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '12px',
-        paddingBottom: '12px',
-        borderBottom: '1px solid var(--border-color)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '12px',
-            background: 'var(--accent-blue-subtle)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--accent-blue)'
-          }}>
-            <Wallet size={22} />
-          </div>
+      {/* 1. HEADER BAR */}
+      <div className="card" style={{ marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <h1 style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '-0.3px', color: 'var(--text-primary)' }}>
-              Budget & Finances
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Wallet size={14} color="var(--accent-blue)" /> BUDGET & FINANCES
+            </div>
+            <h1 style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.5px', marginTop: '4px', color: 'var(--text-primary)' }}>
+              Financial Position & Planning
             </h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px' }}>
               <span>{dayOfWeek}, {date}</span>
               <span>•</span>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                color: income.isWorkday ? 'var(--accent-blue)' : 'var(--text-tertiary)',
-                fontWeight: 500
-              }}>
-                <Briefcase size={12} />
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: income.isWorkday ? 'var(--accent-blue)' : 'var(--text-secondary)', fontWeight: 500 }}>
+                <Briefcase size={13} />
                 {income.isWorkday ? 'Workday' : 'Non-workday'}
               </span>
             </div>
           </div>
-        </div>
 
-        <button
-          onClick={fetchFinancialState}
-          title="Refresh financial state"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '8px 14px',
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            borderRadius: 'var(--radius-button)',
-            color: 'var(--text-primary)',
-            fontSize: '13px',
-            fontWeight: 500,
-            cursor: 'pointer',
-            transition: 'all 0.15s ease'
-          }}
-        >
-          <RefreshCw size={14} className={loading ? 'spin-animation' : ''} />
-          <span>Refresh</span>
-        </button>
-      </div>
-
-      {/* 2. FINANCIAL STATUS INDICATOR */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '14px 18px',
-        background: statusBadge.bgColor,
-        border: `1px solid ${statusBadge.color}`,
-        borderRadius: 'var(--radius-card)',
-        flexWrap: 'wrap',
-        gap: '12px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <StatusIcon size={20} color={statusBadge.color} />
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: statusBadge.color, letterSpacing: '0.5px' }}>
-              {statusBadge.label}
-            </div>
-            <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)' }}>
-              {statusBadge.text}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-          Workday Income Expected: <strong style={{ color: 'var(--text-primary)' }}>{formatPaise(income.todayExpectedPaise)}</strong>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={fetchFinancialState}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
+          </button>
         </div>
       </div>
 
-      {/* 3. TODAY'S FINANCIAL POSITION GRID */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: '12px'
-      }}>
-        {/* NET CASH */}
-        <div style={{
-          padding: '16px',
-          background: 'var(--bg-card)',
-          borderRadius: 'var(--radius-card)',
-          border: '1px solid var(--border-color)'
-        }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: '0.5px', uppercase: 'true', marginBottom: '4px' }}>
-            NET CASH
+      {/* 2. MORNING FINANCIAL PLAN & BALANCE HIERARCHY */}
+      <div className="card" style={{ marginBottom: '16px', background: 'var(--bg-card)', border: '1px solid var(--accent-blue-subtle, rgba(59, 130, 246, 0.2))' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+          {/* ACTUAL CASH */}
+          <div style={{ background: 'var(--bg-app)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              ACTUAL CASH (LEDGER)
+            </div>
+            <div style={{ fontSize: '26px', fontWeight: 800, color: cash.netCashPaise < 0 ? 'var(--accent-red)' : 'var(--text-primary)', marginTop: '4px' }}>
+              {formatPaise(cash.spendableCashPaise || cash.netCashPaise || 0)}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+              Realized ledger balance
+            </div>
           </div>
-          <div style={{
-            fontSize: '22px',
-            fontWeight: 700,
-            color: cash.netCashPaise < 0 ? 'var(--accent-red)' : 'var(--text-primary)'
-          }}>
-            {formatPaise(cash.netCashPaise)}
+
+          {/* EXPECTED TODAY */}
+          <div style={{ background: 'var(--bg-app)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent-blue)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              EXPECTED TODAY
+            </div>
+            <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--accent-blue)', marginTop: '4px' }}>
+              +{formatPaise(income.todayExpectedPaise || 0)}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+              Workday income expectation
+            </div>
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Total Income - Expenses
+
+          {/* TODAY'S PLANNED CAPACITY */}
+          <div style={{ background: 'var(--accent-blue-subtle, rgba(59, 130, 246, 0.08))', padding: '16px', borderRadius: '10px', border: '1px solid var(--accent-blue)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent-blue)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              TODAY'S PLANNED CAPACITY
+            </div>
+            <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--accent-blue)', marginTop: '4px' }}>
+              {formatPaise(financialState?.morningPlan?.plannedCapacityPaise || cash.plannedCapacityPaise || 0)}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+              Expected income minus mandatory commitments
+            </div>
           </div>
+
         </div>
 
-        {/* SPENDABLE CASH */}
-        <div style={{
-          padding: '16px',
-          background: 'var(--bg-card)',
-          borderRadius: 'var(--radius-card)',
-          border: '1px solid var(--border-color)'
-        }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: '0.5px', marginBottom: '4px' }}>
-            SPENDABLE CASH
+        {/* SECONDARY FIGURES GRID */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+          <div style={{ background: 'var(--bg-app)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>NET CASH</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: cash.netCashPaise < 0 ? 'var(--accent-red)' : 'var(--text-primary)', marginTop: '2px' }}>
+              {formatPaise(cash.netCashPaise)}
+            </div>
           </div>
-          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--accent-green)' }}>
-            {formatPaise(cash.spendableCashPaise)}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Clamped spendable balance
-          </div>
-        </div>
 
-        {/* RESERVED MONEY */}
-        <div style={{
-          padding: '16px',
-          background: 'var(--bg-card)',
-          borderRadius: 'var(--radius-card)',
-          border: '1px solid var(--border-color)'
-        }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: '0.5px', marginBottom: '4px' }}>
-            RESERVED
+          <div style={{ background: 'var(--bg-app)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>RESERVED</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent-amber)', marginTop: '2px' }}>
+              {formatPaise(cash.reservedPaise)}
+            </div>
           </div>
-          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--accent-amber)' }}>
-            {formatPaise(cash.reservedPaise)}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Mandatory commitments
-          </div>
-        </div>
 
-        {/* ALLOCATED MONEY */}
-        <div style={{
-          padding: '16px',
-          background: 'var(--bg-card)',
-          borderRadius: 'var(--radius-card)',
-          border: '1px solid var(--border-color)'
-        }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', letterSpacing: '0.5px', marginBottom: '4px' }}>
-            ALLOCATED
-          </div>
-          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--accent-purple)' }}>
-            {formatPaise(cash.allocatedPaise)}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Earmarked for goals
-          </div>
-        </div>
-
-        {/* DISCRETIONARY MONEY */}
-        <div style={{
-          padding: '16px',
-          background: 'var(--bg-card)',
-          borderRadius: 'var(--radius-card)',
-          border: '1px solid var(--accent-blue-subtle)'
-        }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-blue)', letterSpacing: '0.5px', marginBottom: '4px' }}>
-            DISCRETIONARY
-          </div>
-          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--accent-blue)' }}>
-            {formatPaise(cash.discretionaryPaise)}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Uncommitted power
+          <div style={{ background: 'var(--bg-app)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>GOAL ALLOCATIONS</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent-purple)', marginTop: '2px' }}>
+              {formatPaise(cash.allocatedPaise)}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* 4. TWO-COLUMN LAYOUT: TRANSPORT & GOALS */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-        gap: '20px'
-      }}>
-
-        {/* TRANSPORT OBLIGATION CARD */}
-        <div style={{
-          padding: '20px',
-          background: 'var(--bg-card)',
-          borderRadius: 'var(--radius-card)',
-          border: '1px solid var(--border-color)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-            <Bus size={18} color="var(--accent-blue)" />
-            <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
-              Transport Requirements
-            </h3>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>Required Today</span>
-              <strong style={{ color: 'var(--text-primary)' }}>{formatPaise(transport.requiredTodayPaise)}</strong>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>Reserve Required</span>
-              <strong style={{ color: 'var(--accent-amber)' }}>{formatPaise(transport.reserveRequiredPaise)}</strong>
-            </div>
-
-            <div style={{
-              marginTop: '6px',
-              padding: '8px 12px',
-              background: 'var(--bg-card-subtle)',
-              borderRadius: '8px',
-              fontSize: '12px',
-              color: 'var(--text-secondary)'
-            }}>
-              Reason: {transport.reason || 'No current transport obligation'}
-            </div>
-          </div>
+      {/* 3. RECOMMENDED PURCHASES (PRIMARY ACTIONABLE SECTION) */}
+      <div className="card" style={{ marginBottom: '16px' }}>
+        <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <PackageCheck size={18} color="var(--accent-amber)" /> Recommended Purchases
+          </span>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => setActiveTab('cart')}
+            style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            <ShoppingBag size={14} /> Open Cart ({cartCommitments.length})
+          </button>
         </div>
 
-        {/* RANKED FINANCIAL GOALS CARD */}
-        <div style={{
-          padding: '20px',
-          background: 'var(--bg-card)',
-          borderRadius: 'var(--radius-card)',
-          border: '1px solid var(--border-color)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Target size={18} color="var(--accent-purple)" />
-              <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                Ranked Financial Goals
-              </h3>
-            </div>
-            <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>Strict User Ranking</span>
+        {resourceNeeds.length === 0 ? (
+          <div style={{ padding: '16px', background: 'var(--bg-app)', borderRadius: '10px', fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+            <CheckCircle2 size={16} color="var(--accent-green)" />
+            <span>All resource stock levels healthy. No immediate purchases recommended.</span>
           </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px' }}>
+            {resourceNeeds.map((item, idx) => {
+              const resId = item.resourceId || item.itemName.toLowerCase();
+              const isInCart = item.inCart || activeCartResourceIds.has(resId) || activeCartResourceIds.has(item.itemName.toLowerCase());
+              const isAdding = addingResourceMap[resId] || false;
 
-          {goals.length === 0 ? (
-            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', padding: '12px 0' }}>
-              No financial goals configured yet.
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {goals.map((g) => (
+              return (
                 <div
-                  key={g.id}
+                  key={item.resourceId || idx}
                   style={{
-                    padding: '12px',
-                    background: 'var(--bg-card-subtle)',
+                    padding: '12px 14px',
+                    background: 'var(--bg-app)',
                     borderRadius: '10px',
                     border: '1px solid var(--border-color)',
                     display: 'flex',
-                    flexDirection: 'column',
-                    gap: '6px'
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '10px'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        {item.itemName}
+                      </span>
                       <span style={{
                         fontSize: '11px',
                         fontWeight: 700,
-                        padding: '2px 6px',
+                        padding: '1px 6px',
                         borderRadius: '4px',
-                        background: 'var(--accent-purple-subtle)',
-                        color: 'var(--accent-purple)'
+                        background: item.urgency === 'CRITICAL' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                        color: item.urgency === 'CRITICAL' ? 'var(--accent-red)' : 'var(--accent-amber)'
                       }}>
-                        #{g.priority}
+                        {item.urgency || 'HIGH'}
                       </span>
-                      <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                        {g.name}
+                      {item.isAffordable ? (
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-green)' }}>
+                          ✓ Affordable
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-amber)' }}>
+                          Exceeds Budget
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                      Qty: {item.suggestedPurchaseQty || 1} • Est. Cost: {formatPaise(item.estimatedPricePaise)}
+                    </div>
+                  </div>
+
+                  <div>
+                    {isInCart ? (
+                      <span className="badge badge-blue" style={{ fontSize: '12px', padding: '4px 10px' }}>
+                        ✓ Already in Cart
                       </span>
-                    </div>
-
-                    <span style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      color: g.urgency === 'CRITICAL' ? 'var(--accent-red)' : 'var(--text-secondary)'
-                    }}>
-                      {g.urgency}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', fontSize: '12px', marginTop: '4px' }}>
-                    <div>
-                      <div style={{ color: 'var(--text-tertiary)' }}>Target</div>
-                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{formatPaise(g.targetPricePaise)}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: 'var(--text-tertiary)' }}>Saved</div>
-                      <div style={{ fontWeight: 600, color: 'var(--accent-green)' }}>{formatPaise(g.allocatedPaise)}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: 'var(--text-tertiary)' }}>Remaining</div>
-                      <div style={{ fontWeight: 600, color: 'var(--accent-amber)' }}>{formatPaise(g.remainingPaise)}</div>
-                    </div>
+                    ) : (
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => handleAddToCart(item)}
+                        disabled={isAdding}
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <Plus size={14} /> {isAdding ? 'Adding...' : 'Add to Cart'}
+                      </button>
+                    )}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 5. TWO-COLUMN LAYOUT: RESOURCE NEEDS & CART COMMITMENTS */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-        gap: '20px'
-      }}>
-
-        {/* RESOURCE PURCHASE CANDIDATES (Physical Inventory Needs Only) */}
-        <div style={{
-          padding: '20px',
-          background: 'var(--bg-card)',
-          borderRadius: 'var(--radius-card)',
-          border: '1px solid var(--border-color)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <PackageCheck size={18} color="var(--accent-amber)" />
-              <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                Resource Purchase Candidates
-              </h3>
-            </div>
-            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: 'var(--radius-pill)', background: 'var(--accent-amber-subtle)', color: 'var(--accent-amber)', fontWeight: 600 }}>
-              Physical Inventory
-            </span>
-          </div>
-
-          {resourceNeeds.length === 0 ? (
-            <div style={{
-              padding: '16px',
-              background: 'var(--bg-card-subtle)',
-              borderRadius: '10px',
-              fontSize: '13px',
-              color: 'var(--text-secondary)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              <CheckCircle2 size={16} color="var(--accent-green)" />
-              <span>All resource inventory stock levels healthy. No urgent purchases needed.</span>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {resourceNeeds.map((item, idx) => (
-                <div key={item.resourceId || idx} style={{
-                  padding: '10px 14px',
-                  background: 'var(--bg-card-subtle)',
-                  borderRadius: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}>
-                  <div>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      {item.itemName}
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--accent-red)' }}>
-                      {item.reason} (Stock: {item.currentQty})
-                    </div>
-                  </div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {formatPaise(item.estimatedPricePaise)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* CART COMMITMENTS (Planned Purchase Intent) */}
-        <div style={{
-          padding: '20px',
-          background: 'var(--bg-card)',
-          borderRadius: 'var(--radius-card)',
-          border: '1px solid var(--border-color)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ShoppingBag size={18} color="var(--accent-blue)" />
-              <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                Cart Commitments
-              </h3>
-            </div>
-            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: 'var(--radius-pill)', background: 'var(--accent-blue-subtle)', color: 'var(--accent-blue)', fontWeight: 600 }}>
-              Planned Intent (Pending)
-            </span>
-          </div>
-
-          {cartCommitments.length === 0 ? (
-            <div style={{
-              padding: '16px',
-              background: 'var(--bg-card-subtle)',
-              borderRadius: '10px',
-              fontSize: '13px',
-              color: 'var(--text-secondary)'
-            }}>
-              No pending cart commitments.
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {cartCommitments.map((item) => (
-                <div key={item.id} style={{
-                  padding: '10px 14px',
-                  background: 'var(--bg-card-subtle)',
-                  borderRadius: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}>
-                  <div>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      {item.itemName} (x{item.quantity})
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                      Status: {item.status}
-                    </div>
-                  </div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-blue)' }}>
-                    Planned {formatPaise(item.totalEstimatedPaise)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 6. UPCOMING OBLIGATIONS CARD */}
-      <div style={{
-        padding: '20px',
-        background: 'var(--bg-card)',
-        borderRadius: 'var(--radius-card)',
-        border: '1px solid var(--border-color)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-          <Info size={18} color="var(--accent-amber)" />
-          <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
-            Upcoming Obligations
-          </h3>
-        </div>
-
-        {upcomingObligations.length === 0 ? (
-          <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-            No upcoming high-urgency goal obligations detected.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-            {upcomingObligations.map((ob, idx) => (
-              <div key={ob.id || idx} style={{
-                padding: '8px 14px',
-                background: 'var(--bg-card-subtle)',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                fontSize: '13px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{ob.name}</span>
-                <span style={{ color: 'var(--accent-amber)' }}>{formatPaise(ob.remainingPaise)} remaining</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* 7. DECISION PREVIEW (Preparation for future 12:30 PM Intelligence) */}
-      <div style={{
-        padding: '20px',
-        background: 'var(--bg-card)',
-        borderRadius: 'var(--radius-card)',
-        border: '1px solid var(--accent-blue-subtle)',
-        marginBottom: '20px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', marginBottom: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Calendar size={18} color="var(--accent-blue)" />
-            <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>
-              TODAY'S DECISION PREVIEW
-            </h3>
+      {/* 4. TWO-COLUMN LAYOUT: TODAY'S COMMITMENTS & FINANCIAL GOALS */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+
+        {/* TODAY'S COMMITMENTS */}
+        <div className="card">
+          <div className="card-title" style={{ marginBottom: '12px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Bus size={18} color="var(--accent-blue)" /> Today's Commitments
+            </span>
           </div>
-          <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Engine Facts (Pre-AI)</span>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>Transport Required Today</span>
+              <strong style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{formatPaise(transport.requiredTodayPaise || 0)}</strong>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>Transport Reserve Needed</span>
+              <strong style={{ fontSize: '14px', color: 'var(--accent-amber)' }}>{formatPaise(transport.reserveRequiredPaise || 0)}</strong>
+            </div>
+          </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', fontSize: '13px' }}>
-          <div style={{ padding: '10px', background: 'var(--bg-card-subtle)', borderRadius: '8px' }}>
-            <div style={{ color: 'var(--text-tertiary)', fontSize: '11px', marginBottom: '2px' }}>Available for Discretionary Allocation</div>
-            <strong style={{ color: 'var(--accent-blue)' }}>{formatPaise(decisionState.canAllocatePaise)}</strong>
+        {/* FINANCIAL GOALS */}
+        <div className="card">
+          <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Target size={18} color="var(--accent-purple)" /> Financial Goals
+            </span>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setActiveTab('cart')}
+              style={{ fontSize: '11px', padding: '2px 8px' }}
+            >
+              Manage Goals
+            </button>
           </div>
 
-          <div style={{ padding: '10px', background: 'var(--bg-card-subtle)', borderRadius: '8px' }}>
-            <div style={{ color: 'var(--text-tertiary)', fontSize: '11px', marginBottom: '2px' }}>Highest Priority Goal</div>
-            <strong style={{ color: 'var(--text-primary)' }}>{highestGoal ? highestGoal.name : 'None'}</strong>
-          </div>
+          {goals.length === 0 ? (
+            <div style={{ padding: '16px', background: 'var(--bg-app)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center' }}>
+              No financial goals configured yet. Create a goal to start allocating funds.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {goals.map((g) => {
+                const target = g.targetPricePaise || 1;
+                const allocated = g.allocatedPaise || 0;
+                const pct = Math.min(100, Math.round((allocated / target) * 100));
 
-          <div style={{ padding: '10px', background: 'var(--bg-card-subtle)', borderRadius: '8px' }}>
-            <div style={{ color: 'var(--text-tertiary)', fontSize: '11px', marginBottom: '2px' }}>Must Reserve</div>
-            <strong style={{ color: 'var(--accent-amber)' }}>{formatPaise(decisionState.mustReservePaise)}</strong>
-          </div>
+                return (
+                  <div
+                    key={g.id}
+                    style={{
+                      padding: '10px 12px',
+                      background: 'var(--bg-app)',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border-color)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        #{g.priority} {g.name}
+                      </span>
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-purple)' }}>
+                        {pct}%
+                      </span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div style={{ height: '6px', width: '100%', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden', marginBottom: '6px' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: 'var(--accent-purple)', borderRadius: '3px', transition: 'width 0.3s ease' }} />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                      <span>Saved: {formatPaise(allocated)}</span>
+                      <span>Target: {formatPaise(target)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
+
       </div>
 
     </div>

@@ -1,16 +1,16 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { LayoutDashboard, CheckSquare, Utensils, Terminal, User } from 'lucide-react';
+import { CheckSquare, LayoutDashboard, Wallet, Dumbbell, Sparkles } from 'lucide-react';
 
 export const Navbar = () => {
   const { activeTab, setActiveTab } = useApp();
 
   const navItems = [
-    { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'today', label: 'Today', icon: CheckSquare },
-    { id: 'nutrition', label: 'Food', icon: Utensils },
-    { id: 'dataeng', label: 'Data', icon: Terminal },
-    { id: 'profile', label: 'Profile', icon: User }
+    { id: 'home', label: 'Home', icon: LayoutDashboard },
+    { id: 'budget', label: 'Budget', icon: Wallet },
+    { id: 'training', label: 'Training', icon: Dumbbell },
+    { id: 'skincare', label: 'Skin & Grooming', icon: Sparkles }
   ];
 
   return (

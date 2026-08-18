@@ -7,6 +7,9 @@ import { cryptoNative } from '../utils/crypto.js';
 import { WEEKLY_DOCTRINE, PREPARED_FOR_TOMORROW_TEMPLATES } from '../../src/data/doctrineData.js';
 import { getTaskContext } from '../utils/contextualReasoning.js';
 import { calculateFailurePatterns, VALID_FAILURE_REASONS } from '../services/failurePatternService.js';
+import { getUserUnifiedProgressOverview } from '../services/adherenceEngine.js';
+import { initializeAutomationHandlers } from '../services/automationBootstrap.js';
+import { emitTaskCompletedEvent } from '../services/taskExecutionService.js';
 
 const router = Router();
 
@@ -297,6 +300,20 @@ router.get('/overview', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/history/adherence — Authoritative Progress & Adherence Engine Overview
+router.get('/adherence', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const daysWindow = req.query.days ? Math.min(90, Math.max(7, Number(req.query.days))) : 30;
+    const overview = await getUserUnifiedProgressOverview(db, userId, daysWindow);
+
+    res.json({ success: true, overview });
+  } catch (error) {
+    console.error('[History API] Fetch adherence overview failed:', error);
+    res.status(500).json({ error: 'Failed to retrieve adherence overview', details: error.message });
+  }
+});
+
 // GET /api/history/:date (Authenticated Endpoint)
 router.get('/:date', requireAuth, async (req, res) => {
   const { date } = req.params;
@@ -331,7 +348,11 @@ router.post('/:date/toggle', requireAuth, async (req, res) => {
     const existingTask = tasks.find((t) => t.taskKey === taskKey);
     const nowIso = new Date().toISOString();
 
+    let targetTaskId = null;
+    let isTaskCompleted = false;
+
     if (existingTask) {
+      targetTaskId = existingTask.id;
       let nextStatus = 'SCHEDULED';
       if (targetStatus && ['COMPLETED', 'SKIPPED', 'SCHEDULED', 'MISSED'].includes(targetStatus)) {
         nextStatus = targetStatus;
@@ -339,6 +360,7 @@ router.post('/:date/toggle', requireAuth, async (req, res) => {
         nextStatus = existingTask.status === 'COMPLETED' ? 'SCHEDULED' : 'COMPLETED';
       }
       const completedAt = nextStatus === 'COMPLETED' ? nowIso : null;
+      isTaskCompleted = nextStatus === 'COMPLETED';
 
       await db
         .update(taskExecutions)
@@ -351,9 +373,11 @@ router.post('/:date/toggle', requireAuth, async (req, res) => {
     } else {
       const nextStatus = (targetStatus && ['COMPLETED', 'SKIPPED', 'SCHEDULED', 'MISSED'].includes(targetStatus)) ? targetStatus : 'COMPLETED';
       const completedAt = nextStatus === 'COMPLETED' ? nowIso : null;
+      isTaskCompleted = nextStatus === 'COMPLETED';
+      targetTaskId = cryptoNative.randomUUID();
 
       await db.insert(taskExecutions).values({
-        id: cryptoNative.randomUUID(),
+        id: targetTaskId,
         dailyExecutionId: execution.id,
         taskKey,
         category: 'DOCTRINE',
@@ -362,6 +386,22 @@ router.post('/:date/toggle', requireAuth, async (req, res) => {
         createdAt: nowIso,
         updatedAt: nowIso,
       });
+    }
+
+    // Trigger backend domain automation chain on COMPLETED
+    if (isTaskCompleted && targetTaskId) {
+      try {
+        initializeAutomationHandlers();
+        await emitTaskCompletedEvent(userId, {
+          taskExecutionId: targetTaskId,
+          taskKey,
+          date,
+          category: existingTask?.category || 'DOCTRINE',
+          taskName: existingTask?.taskName || taskKey
+        });
+      } catch (autoErr) {
+        console.warn(`[History Toggle API] Non-fatal automation error on task ${taskKey}:`, autoErr.message);
+      }
     }
 
     const updatedData = await getOrCreateDailyExecution(userId, date);

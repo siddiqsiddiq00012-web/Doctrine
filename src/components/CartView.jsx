@@ -215,6 +215,26 @@ export const CartView = () => {
     }
   };
 
+  const handleCompletePurchase = async (item) => {
+    if (!window.confirm(`Confirm purchase completion of "${item.itemName}" for ${formatPaise(item.totalEstimatedPaise || item.estimatedPricePaise * item.quantity)}?`)) return;
+    try {
+      const res = await fetch(`/api/financial/cart/${item.id}/purchase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ actualPricePaise: item.totalEstimatedPaise || (item.estimatedPricePaise * item.quantity) })
+      });
+      if (res.ok) {
+        fetchCartData();
+      } else {
+        const data = await res.json();
+        alert(data.message || 'Failed to complete purchase');
+      }
+    } catch (err) {
+      console.error('[Cart Complete Purchase Error]:', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="workspace-fluid" style={{ padding: '40px 0', textAlign: 'center' }}>
@@ -409,6 +429,17 @@ export const CartView = () => {
                     <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
                       {item.itemName}
                     </h3>
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      background: item.resourceId ? 'var(--accent-purple-subtle, #F3E8FF)' : 'var(--bg-app)',
+                      color: item.resourceId ? 'var(--accent-purple, #8B5CF6)' : 'var(--text-secondary)',
+                      border: '1px solid var(--border-color)'
+                    }}>
+                      {item.resourceId ? 'DOCTRINE RECOMMENDED' : 'USER ADDED'}
+                    </span>
                   </div>
 
                   <span style={{
@@ -487,7 +518,29 @@ export const CartView = () => {
                   paddingTop: '8px',
                   borderTop: '1px solid var(--border-color)'
                 }}>
-                  {item.status !== 'DEFERRED' && (
+                  {['PENDING', 'APPROVED', 'DEFERRED'].includes(item.status) && (
+                    <button
+                      onClick={() => handleCompletePurchase(item)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '6px 12px',
+                        background: 'var(--accent-green)',
+                        color: '#FFF',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <CheckCircle2 size={13} />
+                      <span>Complete Purchase</span>
+                    </button>
+                  )}
+
+                  {item.status !== 'DEFERRED' && item.status !== 'PURCHASED' && (
                     <button
                       onClick={() => handleDefer(item.id)}
                       style={{

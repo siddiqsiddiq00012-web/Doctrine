@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { db } from '../db/index.js';
-import { cartItems } from '../db/schema.js';
+import { cartItems, financialTransactions, resourceStock, resourceEvents } from '../db/schema.js';
 import { eq, and, asc, desc } from 'drizzle-orm';
 import { cryptoNative } from '../utils/crypto.js';
 import { calculateFinancialState } from '../services/financialEngine.js';
+import { INITIAL_INVENTORY } from '../../src/data/doctrineData.js';
 
 const router = Router();
 
@@ -28,9 +29,7 @@ export function isValidCalendarDate(dateStr) {
   const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
   const daysInMonths = [0, 31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-  if (day > daysInMonths[month]) return false;
-
-  return true;
+  return day <= daysInMonths[month];
 }
 
 /**
@@ -301,7 +300,7 @@ router.patch('/cart/:id', requireAuth, async (req, res) => {
       if (status === 'PURCHASED') {
         return res.status(400).json({
           error: 'Invalid status transition',
-          message: 'Actual purchase confirmation workflow required for PURCHASED status'
+          message: 'Actual purchase confirmation workflow required for PURCHASED status. Use POST /api/financial/cart/:id/purchase.'
         });
       }
       if (!['PENDING', 'APPROVED', 'DEFERRED', 'REJECTED'].includes(status)) {
@@ -342,6 +341,145 @@ router.patch('/cart/:id', requireAuth, async (req, res) => {
       error: 'Internal Server Error',
       message: 'Failed to update cart item'
     });
+  }
+});
+
+/**
+ * POST /api/financial/cart/:id/purchase
+ * Confirms purchase of a planned cart item.
+ * - Updates status to PURCHASED
+ * - Sets actualPricePaise and purchasedAt
+ * - Creates financial EXPENSE transaction in financial_transactions
+ * - If linked to a resourceId, updates resource_stock (increments stock, sets inCart=false) and logs PURCHASE event in resource_events
+ */
+router.post('/cart/:id/purchase', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { actualPricePaise, date } = req.body || {};
+
+    if (!id || typeof id !== 'string') {
+      return res.status(400).json({ error: 'Invalid input', message: 'Cart item ID is required' });
+    }
+
+    const [cartItem] = await db
+      .select()
+      .from(cartItems)
+      .where(and(eq(cartItems.id, id), eq(cartItems.userId, userId)))
+      .limit(1);
+
+    if (!cartItem) {
+      return res.status(404).json({ error: 'Not found', message: 'Cart item not found' });
+    }
+
+    if (cartItem.status === 'PURCHASED') {
+      return res.status(400).json({ error: 'Already purchased', message: 'This cart item has already been purchased' });
+    }
+
+    const nowIso = new Date().toISOString();
+    const purchaseDate = date && isValidCalendarDate(String(date).trim()) ? String(date).trim() : nowIso.split('T')[0];
+
+    const numQty = Number(cartItem.quantity || 1);
+    let finalPricePaise = Number(actualPricePaise);
+    if (isNaN(finalPricePaise) || !Number.isInteger(finalPricePaise) || finalPricePaise < 0) {
+      finalPricePaise = Math.round(numQty * Number(cartItem.estimatedPricePaise || 0));
+    }
+
+    // Update cartItem record
+    await db
+      .update(cartItems)
+      .set({
+        status: 'PURCHASED',
+        actualPricePaise: finalPricePaise,
+        purchasedAt: purchaseDate,
+        updatedAt: nowIso
+      })
+      .where(and(eq(cartItems.id, id), eq(cartItems.userId, userId)));
+
+    // Create financial EXPENSE transaction
+    const txId = `ft_purch_${cryptoNative.randomUUID()}`;
+    await db.insert(financialTransactions).values({
+      id: txId,
+      userId,
+      type: 'EXPENSE',
+      amountPaise: finalPricePaise,
+      category: cartItem.resourceId ? 'RESOURCE_PURCHASE' : 'GENERAL_EXPENSE',
+      description: `Purchased: ${cartItem.itemName}`,
+      date: purchaseDate,
+      cartItemId: cartItem.id,
+      createdAt: nowIso
+    });
+
+    // If linked to resourceId, update resource stock & record purchase event
+    if (cartItem.resourceId) {
+      const doctrineItem = INITIAL_INVENTORY.find((i) => i.id === cartItem.resourceId);
+      const pkgQty = doctrineItem?.packageQty || 1;
+      const addAmount = numQty * pkgQty;
+
+      const [stockRec] = await db
+        .select()
+        .from(resourceStock)
+        .where(and(eq(resourceStock.userId, userId), eq(resourceStock.resourceId, cartItem.resourceId)))
+        .limit(1);
+
+      const currentQty = stockRec ? stockRec.currentQty : (doctrineItem?.currentQty || 0);
+      const nextQty = Math.round((currentQty + addAmount) * 100) / 100;
+
+      if (stockRec) {
+        await db
+          .update(resourceStock)
+          .set({
+            currentQty: nextQty,
+            inCart: false,
+            lastPurchased: purchaseDate,
+            updatedAt: nowIso
+          })
+          .where(eq(resourceStock.id, stockRec.id));
+      } else {
+        await db.insert(resourceStock).values({
+          id: cryptoNative.randomUUID(),
+          userId,
+          resourceId: cartItem.resourceId,
+          currentQty: nextQty,
+          inCart: false,
+          lastPurchased: purchaseDate,
+          createdAt: nowIso,
+          updatedAt: nowIso
+        });
+      }
+
+      await db.insert(resourceEvents).values({
+        id: cryptoNative.randomUUID(),
+        userId,
+        resourceId: cartItem.resourceId,
+        resourceName: cartItem.itemName,
+        eventType: 'PURCHASE',
+        amount: addAmount,
+        unit: doctrineItem?.unit || 'units',
+        date: purchaseDate,
+        notes: `Purchased via Cart (Item #${cartItem.id})`,
+        createdAt: nowIso
+      });
+    }
+
+    const [updatedItem] = await db
+      .select()
+      .from(cartItems)
+      .where(and(eq(cartItems.id, id), eq(cartItems.userId, userId)))
+      .limit(1);
+
+    return res.json({
+      success: true,
+      cartItem: {
+        ...updatedItem,
+        quantity: numQty,
+        estimatedPricePaise: Number(updatedItem.estimatedPricePaise || 0),
+        totalEstimatedPaise: finalPricePaise
+      }
+    });
+  } catch (error) {
+    console.error('[Cart Purchase Error]:', error);
+    return res.status(500).json({ error: 'Internal Server Error', message: 'Failed to complete cart purchase' });
   }
 });
 

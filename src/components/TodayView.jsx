@@ -161,8 +161,6 @@ const ContextSnippet = ({ taskKey, category, activity, dayName }) => {
 
 export const TodayView = () => {
   const {
-    selectedDate,
-    setSelectedDate,
     getTodayStr,
     getOrCreateDailyLog,
     toggleTask,
@@ -172,41 +170,20 @@ export const TodayView = () => {
     togglePrepItem,
     updateDailyNotes,
     adaptationState,
-    adaptationLoading,
-    adaptationError,
     fetchAdaptation,
-    setCapacityMode,
     rescheduleTask
   } = useApp();
 
-  const [capacityInput, setCapacityInput] = useState('NORMAL');
-  const [availableMinsInput, setAvailableMinsInput] = useState('');
-  const [reasonInput, setReasonInput] = useState('');
+  const todayStr = getTodayStr();
+
   const [rescheduleModalTask, setRescheduleModalTask] = useState(null);
   const [targetDateInput, setTargetDateInput] = useState('');
   const [rescheduleError, setRescheduleError] = useState(null);
   const [rescheduleSubmitting, setRescheduleSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchAdaptation(selectedDate);
-  }, [selectedDate, fetchAdaptation]);
-
-  useEffect(() => {
-    if (adaptationState) {
-      setCapacityInput(adaptationState.capacityMode || 'NORMAL');
-      setAvailableMinsInput(adaptationState.availableMinutes !== null && adaptationState.availableMinutes !== undefined ? String(adaptationState.availableMinutes) : '');
-    }
-  }, [adaptationState]);
-
-  const handleApplyCapacity = async (e) => {
-    e.preventDefault();
-    try {
-      await setCapacityMode(selectedDate, capacityInput, availableMinsInput, reasonInput);
-      setReasonInput('');
-    } catch (err) {
-      console.error('Failed applying capacity:', err);
-    }
-  };
+    fetchAdaptation(todayStr);
+  }, [todayStr, fetchAdaptation]);
 
   const handleRescheduleConfirm = async () => {
     if (!rescheduleModalTask || !targetDateInput) return;
@@ -237,18 +214,13 @@ export const TodayView = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const currentLog = getOrCreateDailyLog(selectedDate);
+  const currentLog = getOrCreateDailyLog(todayStr);
   const dayName = currentLog.dayOfWeek;
   const dayDoctrine = WEEKLY_DOCTRINE[dayName] || WEEKLY_DOCTRINE.MONDAY;
 
   const totalTasks = dayDoctrine.timeBlocks.length;
   const completedCount = dayDoctrine.timeBlocks.filter(b => !!currentLog.completedTasks[b.id]?.completed).length;
   const progressPct = Math.round((completedCount / totalTasks) * 100);
-
-  // Raw vs Adapted Compliance from backend adaptationState
-  const isAdaptedMode = adaptationState && adaptationState.capacityMode && adaptationState.capacityMode !== 'NORMAL';
-  const rawCompliancePct = adaptationState?.rawCompliance !== undefined ? adaptationState.rawCompliance : progressPct;
-  const adaptedCompliancePct = adaptationState?.adaptedCompliance !== undefined ? adaptationState.adaptedCompliance : progressPct;
 
   // Namaz total
   const namazKeys = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'];
@@ -280,7 +252,7 @@ export const TodayView = () => {
 
   const { currentBlock, nextBlock } = getCurrentAndNextBlock();
 
-  const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
+  const formattedDate = new Date(todayStr + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'short',
     day: 'numeric'
@@ -288,12 +260,12 @@ export const TodayView = () => {
 
   return (
     <div className="today-view workspace-medium" style={{ paddingBottom: '40px' }}>
-      {/* Date Header & Selector */}
+      {/* Date Header */}
       <div className="card" style={{ padding: '16px 20px', marginBottom: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-              {formattedDate} {selectedDate === getTodayStr() ? '• TODAY' : ''}
+              {formattedDate} • TODAY
             </div>
             <h1 style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.5px', marginTop: '2px', color: 'var(--text-primary)' }}>
               {dayDoctrine.day} — {dayDoctrine.theme}
@@ -302,125 +274,18 @@ export const TodayView = () => {
               {dayDoctrine.subhead}
             </p>
           </div>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="form-input"
-            style={{ width: 'auto', padding: '6px 10px', fontSize: '13px' }}
-          />
         </div>
 
-        {/* Dual Compliance Progress Bars */}
+        {/* Progress Bar */}
         <div style={{ marginTop: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>Raw Historical Compliance</span>
-            <span style={{ color: 'var(--accent-blue)' }}>{completedCount} of {totalTasks} ({rawCompliancePct}%)</span>
+            <span style={{ color: 'var(--text-secondary)' }}>Today's Progress</span>
+            <span style={{ color: 'var(--accent-blue)' }}>{completedCount} of {totalTasks} ({progressPct}%)</span>
           </div>
-          <div className="progress-container" style={{ height: '6px', marginBottom: isAdaptedMode ? '10px' : '0' }}>
-            <div className="progress-fill" style={{ width: `${rawCompliancePct}%` }}></div>
+          <div className="progress-container" style={{ height: '6px' }}>
+            <div className="progress-fill" style={{ width: `${progressPct}%` }}></div>
           </div>
-
-          {isAdaptedMode && (
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                <span style={{ color: 'var(--accent-purple)' }}>Adapted Plan Compliance ({adaptationState.capacityMode})</span>
-                <span style={{ color: 'var(--accent-purple)' }}>{adaptedCompliancePct}%</span>
-              </div>
-              <div className="progress-container" style={{ height: '8px', background: 'var(--accent-purple-subtle)' }}>
-                <div className="progress-fill" style={{ width: `${adaptedCompliancePct}%`, background: 'var(--accent-purple)' }}></div>
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: '1.4' }}>
-                ⓘ Raw compliance reflects historical reality. Adapted compliance tracks execution against today's compressed plan. 100% adapted compliance means essential targets were met under constrained capacity.
-              </div>
-            </div>
-          )}
         </div>
-      </div>
-
-      {/* ADAPTIVE CAPACITY CONTROLS CARD */}
-      <div className="card" style={{ padding: '16px 20px', marginBottom: '16px', borderLeft: '4px solid var(--accent-purple)' }}>
-        <div className="card-title" style={{ marginBottom: '8px' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Sparkles size={18} color="var(--accent-purple)" /> Adaptive Execution & Capacity Mode
-          </span>
-          <span className={`badge ${isAdaptedMode ? 'badge-purple' : 'badge-secondary'}`}>
-            Mode: {adaptationState?.capacityMode || 'NORMAL'}
-          </span>
-        </div>
-        <div className="card-subtitle" style={{ marginBottom: '12px' }}>
-          Adapt your daily plan to current time and energy constraints without corrupting historical records.
-        </div>
-
-        <form onSubmit={handleApplyCapacity}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px', marginBottom: '12px' }}>
-            {['NORMAL', 'MINIMUM_VIABLE', 'EXAM_COMPRESSED', 'REST_RECOVERY'].map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                className={`btn ${capacityInput === mode ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setCapacityInput(mode)}
-                style={{
-                  padding: '8px 10px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  textTransform: 'capitalize',
-                  borderColor: capacityInput === mode ? 'var(--accent-purple)' : ''
-                }}
-              >
-                {mode.replace('_', ' ')}
-              </button>
-            ))}
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
-            <div style={{ flex: '1 1 120px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                Available Minutes (Optional)
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="1440"
-                placeholder="e.g. 60"
-                value={availableMinsInput}
-                onChange={(e) => setAvailableMinsInput(e.target.value)}
-                className="form-input"
-                style={{ width: '100%', padding: '6px 10px', fontSize: '12px' }}
-              />
-            </div>
-            <div style={{ flex: '2 1 200px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                Constraint Reason (Optional)
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. College Exam, Low Energy, Limited Time"
-                value={reasonInput}
-                onChange={(e) => setReasonInput(e.target.value)}
-                className="form-input"
-                style={{ width: '100%', padding: '6px 10px', fontSize: '12px' }}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={adaptationLoading}
-              style={{ fontSize: '12px', padding: '6px 16px', fontWeight: 600 }}
-            >
-              {adaptationLoading ? 'Updating Capacity...' : 'Apply Capacity Mode'}
-            </button>
-          </div>
-        </form>
-
-        {adaptationError && (
-          <div style={{ fontSize: '12px', color: '#EF4444', marginTop: '8px', padding: '6px 10px', borderRadius: '6px', background: '#FEE2E2' }}>
-            ⚠ {adaptationError}
-          </div>
-        )}
       </div>
 
       {/* RESCHEDULE TASK MODAL */}
@@ -472,7 +337,7 @@ export const TodayView = () => {
       )}
 
       {/* HERO "WHAT NOW?" EXECUTION COMMAND SURFACE */}
-      {selectedDate === getTodayStr() && currentBlock && (
+      {currentBlock && (
         <div className="hero-what-now">
           <div className="what-now-meta">
             <span>CURRENT TIME BLOCK</span>
@@ -494,7 +359,7 @@ export const TodayView = () => {
 
             <button
               className={`btn ${currentLog.completedTasks[currentBlock.id]?.completed ? 'btn-secondary' : 'btn-primary'}`}
-              onClick={() => toggleTask(selectedDate, currentBlock.id)}
+              onClick={() => toggleTask(todayStr, currentBlock.id)}
               style={{
                 minHeight: '44px',
                 padding: '10px 20px',
@@ -540,7 +405,7 @@ export const TodayView = () => {
               <div
                 key={p}
                 className={`prayer-pill ${isDone ? 'active' : ''}`}
-                onClick={() => toggleNamaz(selectedDate, p)}
+                onClick={() => toggleNamaz(todayStr, p)}
               >
                 <div className="prayer-name">{p.toUpperCase()}</div>
                 <div className="prayer-status">{isDone ? '✓ Prayed' : '○ Pending'}</div>
@@ -549,7 +414,7 @@ export const TodayView = () => {
           })}
           <div
             className={`prayer-pill ${currentLog.tahajjud ? 'active' : ''}`}
-            onClick={() => toggleTahajjud(selectedDate)}
+            onClick={() => toggleTahajjud(todayStr)}
             style={{ background: currentLog.tahajjud ? 'var(--accent-purple-subtle)' : '', borderColor: currentLog.tahajjud ? 'var(--accent-purple)' : '' }}
           >
             <div className="prayer-name" style={{ color: currentLog.tahajjud ? 'var(--accent-purple)' : '' }}>TAHAJJUD</div>
@@ -587,7 +452,7 @@ export const TodayView = () => {
                 <div
                   key={block.id}
                   className={`check-item ${isCompleted ? 'completed' : ''}`}
-                  onClick={() => toggleTask(selectedDate, block.id)}
+                  onClick={() => toggleTask(todayStr, block.id)}
                 >
                   <div className="checkbox-custom">
                     {isCompleted && <Check size={14} />}
@@ -604,6 +469,11 @@ export const TodayView = () => {
                     <div className="task-text" style={{ marginTop: '2px' }}>
                       {block.activity}
                     </div>
+                    {isCompleted && (
+                      <div style={{ fontSize: '11px', color: 'var(--accent-purple)', marginTop: '2px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>⚡ Completed • Resources & Adherence automatically updated</span>
+                      </div>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', flexWrap: 'wrap', gap: '8px' }}>
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                         <div className="task-category">{block.category}</div>
@@ -622,7 +492,7 @@ export const TodayView = () => {
                             e.stopPropagation();
                             setRescheduleModalTask(block);
                             // Default target date to tomorrow
-                            const nextD = new Date(selectedDate + 'T00:00:00');
+                            const nextD = new Date(todayStr + 'T00:00:00');
                             nextD.setDate(nextD.getDate() + 1);
                             const y = nextD.getFullYear();
                             const m = String(nextD.getMonth() + 1).padStart(2, '0');
@@ -703,7 +573,7 @@ export const TodayView = () => {
                 <div
                   key={item.key}
                   className={`check-item ${isChecked ? 'completed' : ''}`}
-                  onClick={() => toggleAnchor(selectedDate, item.key)}
+                  onClick={() => toggleAnchor(todayStr, item.key)}
                 >
                   <div className="checkbox-custom">
                     {isChecked && <Check size={14} />}
@@ -746,7 +616,7 @@ export const TodayView = () => {
                 <div
                   key={item.id}
                   className={`check-item ${isChecked ? 'completed' : ''}`}
-                  onClick={() => togglePrepItem(selectedDate, item.id)}
+                  onClick={() => togglePrepItem(todayStr, item.id)}
                 >
                   <div className="checkbox-custom">
                     {isChecked && <Check size={14} />}
@@ -767,10 +637,10 @@ export const TodayView = () => {
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <FileText size={18} color="var(--accent-blue)" /> Daily Notes & Observations
           </span>
-          <span className="badge badge-purple">Attached to {selectedDate}</span>
+          <span className="badge badge-purple">Attached to {todayStr}</span>
         </div>
         <div className="card-subtitle">
-          Record observations, wins, obstacles, or adjustments for today ({selectedDate}).
+          Record observations, wins, obstacles, or adjustments for today ({todayStr}).
         </div>
 
         <textarea
@@ -778,7 +648,7 @@ export const TodayView = () => {
           rows={4}
           placeholder="Type your reflections, observations, or reasons for missed tasks today..."
           value={currentLog.notes || ''}
-          onChange={(e) => updateDailyNotes(selectedDate, e.target.value)}
+          onChange={(e) => updateDailyNotes(todayStr, e.target.value)}
           style={{ width: '100%', marginTop: '8px', fontSize: '13px', lineHeight: '1.5' }}
         />
       </div>
@@ -896,8 +766,7 @@ export const TodayView = () => {
       </div>
 
       {/* 10:00 PM DAILY AI SUMMARY */}
-      <DailySummaryView dateStr={selectedDate} />
+      <DailySummaryView dateStr={todayStr} />
     </div>
   );
 };
-
