@@ -30,10 +30,8 @@ export const AppProvider = ({ children }) => {
     return today.toISOString().split('T')[0];
   };
 
-  const isLocalDev = Boolean(
-    import.meta.env.DEV ||
-    (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-  );
+  // Authentication is intentionally bypassed during the current Doctrine development phase.
+  const isAuthBypassEnabled = true;
 
   const DEV_DEFAULT_USER = {
     id: 'default-user-siddiq',
@@ -42,7 +40,7 @@ export const AppProvider = ({ children }) => {
     avatarUrl: ''
   };
 
-  const [user, setUser] = useState(isLocalDev ? DEV_DEFAULT_USER : null);
+  const [user, setUser] = useState(isAuthBypassEnabled ? DEV_DEFAULT_USER : null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   // Active Tab state with LocalStorage persistence to remain on current screen on refresh
   const [activeTab, setActiveTab] = useState(() => {
@@ -276,13 +274,13 @@ export const AppProvider = ({ children }) => {
         if (data.authenticated && data.user) {
           setUser(data.user);
           fetchUserPreferences();
-        } else if (isLocalDev) {
+        } else if (isAuthBypassEnabled) {
           setUser(DEV_DEFAULT_USER);
           fetchUserPreferences();
         } else {
           setUser(null);
         }
-      } else if (isLocalDev) {
+      } else if (isAuthBypassEnabled) {
         setUser(DEV_DEFAULT_USER);
         fetchUserPreferences();
       } else {
@@ -290,7 +288,7 @@ export const AppProvider = ({ children }) => {
       }
     } catch (err) {
       console.error('Auth verification failed:', err);
-      if (isLocalDev) {
+      if (isAuthBypassEnabled) {
         setUser(DEV_DEFAULT_USER);
         fetchUserPreferences();
       } else {
@@ -299,7 +297,7 @@ export const AppProvider = ({ children }) => {
     } finally {
       setLoadingAuth(false);
     }
-  }, [fetchUserPreferences, isLocalDev]);
+  }, [fetchUserPreferences, isAuthBypassEnabled]);
 
   useEffect(() => {
     checkAuth();
