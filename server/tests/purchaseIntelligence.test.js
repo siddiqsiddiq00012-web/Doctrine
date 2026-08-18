@@ -95,11 +95,11 @@ test('STEP 6 — INVENTORY DEPLETION -> CART & PURCHASE INTELLIGENCE TESTS', asy
   });
 
   await t.test('2. Depleted Inventory -> Cart Item Automatically Created', async () => {
-    // Set Bananas (inv-5) to 0 pcs (minStockLevel = 4)
+    // Set Eggs (inv-1) to 0 pcs (minStockLevel = 6)
     await db
       .update(resourceStock)
       .set({ currentQty: 0, inCart: false, updatedAt: nowIso })
-      .where(and(eq(resourceStock.userId, userIdA), eq(resourceStock.resourceId, 'inv-5')));
+      .where(and(eq(resourceStock.userId, userIdA), eq(resourceStock.resourceId, 'inv-1')));
 
     const result = await evaluatePurchaseIntelligence(db, userIdA);
     assert.equal(result.success, true);
@@ -107,7 +107,7 @@ test('STEP 6 — INVENTORY DEPLETION -> CART & PURCHASE INTELLIGENCE TESTS', asy
     const userCartItems = await db
       .select()
       .from(cartItems)
-      .where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-5'), eq(cartItems.status, 'PENDING')));
+      .where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-1'), eq(cartItems.status, 'PENDING')));
 
     if (userCartItems.length !== 1) {
       console.error('TEST 2 CART ITEMS DEBUG:', userCartItems);
@@ -115,35 +115,35 @@ test('STEP 6 — INVENTORY DEPLETION -> CART & PURCHASE INTELLIGENCE TESTS', asy
     assert.equal(userCartItems.length, 1, 'Exactly one PENDING cart item must be created');
     assert.ok(userCartItems[0].quantity > 0, 'Quantity must be positive');
 
-    const [bananaStock] = await db
+    const [eggStock] = await db
       .select()
       .from(resourceStock)
-      .where(and(eq(resourceStock.userId, userIdA), eq(resourceStock.resourceId, 'inv-5')));
-    assert.equal(bananaStock.inCart, true, 'resource_stock.inCart must be set to true');
+      .where(and(eq(resourceStock.userId, userIdA), eq(resourceStock.resourceId, 'inv-1')));
+    assert.equal(eggStock.inCart, true, 'resource_stock.inCart must be set to true');
   });
 
   await t.test('3. Forecast Recommended Quantity -> Cart Quantity Matches Forecast', async () => {
     const forecastRes = await calculateResourceForecasts(db, userIdA);
-    const bananaItem = forecastRes.resources.find((r) => r.id === 'inv-5');
+    const eggItem = forecastRes.resources.find((r) => r.id === 'inv-1');
 
     const [cartRow] = await db
       .select()
       .from(cartItems)
-      .where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-5'), eq(cartItems.status, 'PENDING')));
+      .where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-1'), eq(cartItems.status, 'PENDING')));
 
-    assert.equal(cartRow.quantity, bananaItem.forecast.recommendedPurchaseQty);
+    assert.equal(cartRow.quantity, eggItem.forecast.recommendedPurchaseQty);
   });
 
   await t.test('4. Existing Active Cart Item -> Updated Rather Than Duplicated', async () => {
     // Re-evaluate purchase intelligence for User A
     await evaluatePurchaseIntelligence(db, userIdA);
 
-    const bananaCartItems = await db
+    const eggCartItems = await db
       .select()
       .from(cartItems)
-      .where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-5')));
+      .where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-1')));
 
-    assert.equal(bananaCartItems.length, 1, 'Existing cart item must be updated without creating duplicate row');
+    assert.equal(eggCartItems.length, 1, 'Existing cart item must be updated without creating duplicate row');
   });
 
   await t.test('5. Repeated Event Processing -> Exactly 1 Active Cart Item', async () => {
@@ -163,7 +163,7 @@ test('STEP 6 — INVENTORY DEPLETION -> CART & PURCHASE INTELLIGENCE TESTS', asy
     const activeCartItems = await db
       .select()
       .from(cartItems)
-      .where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-5'), inArray(cartItems.status, ['PENDING', 'APPROVED'])));
+      .where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-1'), inArray(cartItems.status, ['PENDING', 'APPROVED'])));
 
     assert.equal(activeCartItems.length, 1, 'Exactly one active cart item must exist after duplicate processing');
   });
@@ -179,17 +179,17 @@ test('STEP 6 — INVENTORY DEPLETION -> CART & PURCHASE INTELLIGENCE TESTS', asy
     const activeCartItems = await db
       .select()
       .from(cartItems)
-      .where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-5'), inArray(cartItems.status, ['PENDING', 'APPROVED'])));
+      .where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-1'), inArray(cartItems.status, ['PENDING', 'APPROVED'])));
 
     assert.equal(activeCartItems.length, 1, 'Concurrent evaluations must resolve to exactly 1 active cart item');
   });
 
   await t.test('7. Multi-Resource Task -> Each Depleted Resource Evaluated Independently', async () => {
-    // Set Milk (inv-2) to 0 L & Oats (inv-3) to 0 kg
+    // Set Curd (inv-4) to 0 kg & Oats (inv-3) to 0 kg
     await db
       .update(resourceStock)
       .set({ currentQty: 0, inCart: false, updatedAt: nowIso })
-      .where(and(eq(resourceStock.userId, userIdA), eq(resourceStock.resourceId, 'inv-2')));
+      .where(and(eq(resourceStock.userId, userIdA), eq(resourceStock.resourceId, 'inv-4')));
 
     await db
       .update(resourceStock)
@@ -198,10 +198,10 @@ test('STEP 6 — INVENTORY DEPLETION -> CART & PURCHASE INTELLIGENCE TESTS', asy
 
     await evaluatePurchaseIntelligence(db, userIdA);
 
-    const milkCart = await db.select().from(cartItems).where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-2')));
+    const curdCart = await db.select().from(cartItems).where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-4')));
     const oatsCart = await db.select().from(cartItems).where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-3')));
 
-    assert.equal(milkCart.length, 1);
+    assert.equal(curdCart.length, 1);
     assert.equal(oatsCart.length, 1);
   });
 
@@ -231,32 +231,32 @@ test('STEP 6 — INVENTORY DEPLETION -> CART & PURCHASE INTELLIGENCE TESTS', asy
   });
 
   await t.test('10. Strict Multi-Tenant Isolation', async () => {
-    // User A inventory is depleted. User B inventory is high (Milk inv-2 = 10 L).
+    // User A inventory is depleted. User B inventory is high (Oats inv-3 = 10 kg).
     await db
       .update(resourceStock)
       .set({ currentQty: 10, inCart: false, updatedAt: nowIso })
-      .where(and(eq(resourceStock.userId, userIdB), eq(resourceStock.resourceId, 'inv-2')));
+      .where(and(eq(resourceStock.userId, userIdB), eq(resourceStock.resourceId, 'inv-3')));
 
     await evaluatePurchaseIntelligence(db, userIdA);
 
     const userBCartItems = await db
       .select()
       .from(cartItems)
-      .where(and(eq(cartItems.userId, userIdB), eq(cartItems.resourceId, 'inv-2')));
+      .where(and(eq(cartItems.userId, userIdB), eq(cartItems.resourceId, 'inv-3')));
 
     assert.equal(userBCartItems.length, 0, "User A's inventory depletion must NEVER create or modify User B's cart items");
   });
 
   await t.test('11. Forecast API and Purchase Intelligence Produce Consistent Results', async () => {
     const forecastRes = await calculateResourceForecasts(db, userIdA);
-    const milkForecast = forecastRes.resources.find((r) => r.id === 'inv-2');
+    const eggForecast = forecastRes.resources.find((r) => r.id === 'inv-1');
 
-    const [milkCartRow] = await db
+    const [eggCartRow] = await db
       .select()
       .from(cartItems)
-      .where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-2'), eq(cartItems.status, 'PENDING')));
+      .where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-1'), eq(cartItems.status, 'PENDING')));
 
-    assert.equal(milkCartRow.quantity, milkForecast.forecast.recommendedPurchaseQty);
+    assert.equal(eggCartRow.quantity, eggForecast.forecast.recommendedPurchaseQty);
   });
 
   await t.test('12. Existing Actual Purchase Flow Remains Intact', async () => {
@@ -266,19 +266,19 @@ test('STEP 6 — INVENTORY DEPLETION -> CART & PURCHASE INTELLIGENCE TESTS', asy
     // 3. Update resource_stock currentQty + inCart: false
     // 4. Update cart_items status: 'PURCHASED'
     const purchaseId = `pur_${cryptoNative.randomUUID()}`;
-    const cartItem = (await db.select().from(cartItems).where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-2'))))[0];
+    const cartItem = (await db.select().from(cartItems).where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-1'))))[0];
 
     await db.insert(financialTransactions).values({
       id: `ft_exp_${cryptoNative.randomUUID()}`,
       userId: userIdA,
-      amountPaise: 10000, // ₹100.00
+      amountPaise: 20000, // ₹200.00
       date: '2026-08-17',
       type: 'EXPENSE',
       category: 'RESOURCE_PURCHASE',
-      description: 'Milk purchase',
+      description: 'Eggs purchase',
       source: 'PURCHASE',
       cartItemId: cartItem.id,
-      resourceId: 'inv-2',
+      resourceId: 'inv-1',
       createdAt: nowIso,
       updatedAt: nowIso,
     });
@@ -286,10 +286,10 @@ test('STEP 6 — INVENTORY DEPLETION -> CART & PURCHASE INTELLIGENCE TESTS', asy
     await db.insert(purchaseRecords).values({
       id: purchaseId,
       userId: userIdA,
-      resourceId: 'inv-2',
-      itemName: 'Full-Fat Buffalo Milk',
-      quantity: 2.0,
-      actualPricePaise: 10000,
+      resourceId: 'inv-1',
+      itemName: 'Eggs',
+      quantity: 1,
+      actualPricePaise: 20000,
       purchaseDate: '2026-08-17',
       cartItemId: cartItem.id,
       createdAt: nowIso,
@@ -303,16 +303,16 @@ test('STEP 6 — INVENTORY DEPLETION -> CART & PURCHASE INTELLIGENCE TESTS', asy
 
     await db
       .update(resourceStock)
-      .set({ currentQty: 2.0, inCart: false, updatedAt: nowIso })
-      .where(and(eq(resourceStock.userId, userIdA), eq(resourceStock.resourceId, 'inv-2')));
+      .set({ currentQty: 30, inCart: false, updatedAt: nowIso })
+      .where(and(eq(resourceStock.userId, userIdA), eq(resourceStock.resourceId, 'inv-1')));
 
-    const [updatedMilkStock] = await db
+    const [updatedEggStock] = await db
       .select()
       .from(resourceStock)
-      .where(and(eq(resourceStock.userId, userIdA), eq(resourceStock.resourceId, 'inv-2')));
+      .where(and(eq(resourceStock.userId, userIdA), eq(resourceStock.resourceId, 'inv-1')));
 
-    assert.equal(updatedMilkStock.currentQty, 2.0);
-    assert.equal(updatedMilkStock.inCart, false);
+    assert.equal(updatedEggStock.currentQty, 30);
+    assert.equal(updatedEggStock.inCart, false);
 
     const [updatedCart] = await db
       .select()
@@ -323,30 +323,26 @@ test('STEP 6 — INVENTORY DEPLETION -> CART & PURCHASE INTELLIGENCE TESTS', asy
   });
 
   await t.test('13. Critical Integration Test: End-to-End Task Completion -> Consumption -> Forecast -> Cart Decision', async () => {
-    // Reset routine stock items (Milk: 10 L, Oats: 2 kg, Peanut Butter: 500 g) to high levels so consumption succeeds
+    // Reset routine stock items (Milk: 10 L, Peanut Butter: 500 g) to high levels so consumption succeeds
     await db
       .update(resourceStock)
       .set({ currentQty: 10, inCart: false, updatedAt: nowIso })
       .where(and(eq(resourceStock.userId, userIdA), eq(resourceStock.resourceId, 'inv-2')));
     await db
       .update(resourceStock)
-      .set({ currentQty: 2, inCart: false, updatedAt: nowIso })
-      .where(and(eq(resourceStock.userId, userIdA), eq(resourceStock.resourceId, 'inv-3')));
-    await db
-      .update(resourceStock)
       .set({ currentQty: 500, inCart: false, updatedAt: nowIso })
       .where(and(eq(resourceStock.userId, userIdA), eq(resourceStock.resourceId, 'inv-6')));
 
-    // Set Bananas (inv-5) to 1.5 pcs (minStockLevel = 4)
+    // Set Oats (inv-3) to 0.5 kg (minStockLevel = 0.5 kg)
     await db
       .update(resourceStock)
-      .set({ currentQty: 1.5, inCart: false, updatedAt: nowIso })
-      .where(and(eq(resourceStock.userId, userIdA), eq(resourceStock.resourceId, 'inv-5')));
+      .set({ currentQty: 0.5, inCart: false, updatedAt: nowIso })
+      .where(and(eq(resourceStock.userId, userIdA), eq(resourceStock.resourceId, 'inv-3')));
 
-    // Clear any previous cart items for inv-5 for User A
-    await db.delete(cartItems).where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-5')));
+    // Clear any previous cart items for inv-3 for User A
+    await db.delete(cartItems).where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-3')));
 
-    // 2. Emit TASK_COMPLETED event for "Mass Shake" (consumes 1 banana, 0.3 L milk, 40 g oats, 20 g peanut butter)
+    // 2. Emit TASK_COMPLETED event for "Mass Shake" (consumes 0.04 kg oats)
     const execIdChain = `exec_chain_${Date.now()}`;
     const result = await emitTaskCompletedEvent(userIdA, {
       taskExecutionId: execIdChain,
@@ -361,21 +357,21 @@ test('STEP 6 — INVENTORY DEPLETION -> CART & PURCHASE INTELLIGENCE TESTS', asy
 
     // 3. Verify causal sequence:
     // Step 4 resource_consumption_handler (priority 10) ran FIRST:
-    // Banana stock decreased from 1.5 pcs to 0.5 pcs
-    const [bananaStockPost] = await db
+    // Oats stock decreased from 0.5 kg to 0.46 kg
+    const [oatsStockPost] = await db
       .select()
       .from(resourceStock)
-      .where(and(eq(resourceStock.userId, userIdA), eq(resourceStock.resourceId, 'inv-5')));
-    assert.equal(bananaStockPost.currentQty, 0.5, 'Stock must be deducted by resource consumption handler before purchase intelligence runs');
+      .where(and(eq(resourceStock.userId, userIdA), eq(resourceStock.resourceId, 'inv-3')));
+    assert.equal(oatsStockPost.currentQty, 0.46, 'Stock must be deducted by resource consumption handler before purchase intelligence runs');
 
     // Step 6 resource_purchase_intelligence_handler (priority 50) ran SECOND:
-    // Forecast evaluated NEW stock (0.5 pcs <= minStockLevel 4) -> created PENDING cart item for inv-5!
-    const bananaCartItems = await db
+    // Forecast evaluated NEW stock (0.46 kg <= minStockLevel 0.5) -> created PENDING cart item for inv-3!
+    const oatsCartItems = await db
       .select()
       .from(cartItems)
-      .where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-5'), eq(cartItems.status, 'PENDING')));
+      .where(and(eq(cartItems.userId, userIdA), eq(cartItems.resourceId, 'inv-3'), eq(cartItems.status, 'PENDING')));
 
-    assert.equal(bananaCartItems.length, 1, 'Purchase intelligence handler must use NEW post-consumption stock state to create cart item');
-    assert.equal(bananaStockPost.inCart, true, 'resource_stock.inCart must be updated to true');
+    assert.equal(oatsCartItems.length, 1, 'Purchase intelligence handler must use NEW post-consumption stock state to create cart item');
+    assert.equal(oatsStockPost.inCart, true, 'resource_stock.inCart must be updated to true');
   });
 });

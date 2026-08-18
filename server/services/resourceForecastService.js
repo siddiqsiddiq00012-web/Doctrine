@@ -11,7 +11,7 @@ export const DOCTRINE_USAGE_RATES = {
   'inv-4': { rate: 0.15, unit: 'kg/day', source: 'Doctrine (150 g curd/day)' },
   'inv-5': { rate: 2.0, unit: 'pcs/day', source: 'Doctrine (2 bananas/day)' },
   'inv-6': { rate: 20.0, unit: 'g/day', source: 'Doctrine (20 g peanut butter/day)' },
-  'inv-7': { rate: 40.0, unit: 'g/day', source: 'Doctrine (40 g peanuts/day)' },
+  'inv-7': { rate: 0.04, unit: 'kg/day', source: 'Doctrine (40 g peanuts/day)' },
   'inv-8': { rate: 15.0, unit: 'g/day', source: 'Doctrine (15 g honey/day)' },
   'inv-9': { rate: 20.0, unit: 'g/day', source: 'Doctrine (20 g ghee/day)' },
   'inv-10': { rate: 5.0, unit: 'g/day', source: 'Doctrine (1 tsp flaxseed post-workout)' },
@@ -128,11 +128,13 @@ export async function calculateResourceForecasts(db, userId) {
       totalEstimatedCost += item.estimatedPrice;
     }
 
-    // FORECAST COMPUTATION FOR RESOURCE ITEM
+    // FORECAST & WEEKLY CONSUMPTION COMPUTATION FOR RESOURCE ITEM
     const consumptionEvents = events.filter(e => e.resourceId === item.id && e.eventType === 'CONSUMPTION');
     let dailyUsageRate = 0;
+    let historicalWeeklyConsumption = 0;
     let confidence = 'LOW';
     let usageSource = 'Insufficient usage data';
+    let consumptionSource = 'DOCTRINE_BASELINE';
 
     if (consumptionEvents.length >= 2) {
       const totalAmount = consumptionEvents.reduce((sum, e) => sum + (e.amount || 0), 0);
@@ -140,28 +142,49 @@ export async function calculateResourceForecasts(db, userId) {
       const dFirst = new Date(dates[0]);
       const dLast = new Date(dates[dates.length - 1]);
       const daysDiff = Math.max(1, Math.round((dLast - dFirst) / (1000 * 60 * 60 * 24)) + 1);
+
       dailyUsageRate = totalAmount / daysDiff;
-      confidence = 'HIGH';
-      usageSource = `Actual consumption history (${consumptionEvents.length} events over ${daysDiff} days)`;
+      historicalWeeklyConsumption = Math.round(dailyUsageRate * 7 * 100) / 100;
+
+      if (daysDiff >= 28) {
+        confidence = 'HIGH';
+        usageSource = `4+ weeks historical consumption (${consumptionEvents.length} events over ${daysDiff} days)`;
+        consumptionSource = 'HISTORICAL';
+      } else if (daysDiff >= 14) {
+        confidence = 'MEDIUM';
+        usageSource = `2-3 weeks historical consumption (${consumptionEvents.length} events over ${daysDiff} days)`;
+        consumptionSource = 'HISTORICAL';
+      } else {
+        confidence = 'LOW';
+        usageSource = `1 week historical consumption (${consumptionEvents.length} events over ${daysDiff} days)`;
+        consumptionSource = 'HYBRID';
+      }
     } else {
       const fallback = DOCTRINE_USAGE_RATES[item.id];
       if (fallback && fallback.rate > 0) {
         dailyUsageRate = fallback.rate;
+        historicalWeeklyConsumption = Math.round(fallback.rate * 7 * 100) / 100;
         confidence = 'MEDIUM';
         usageSource = fallback.source;
+        consumptionSource = 'DOCTRINE_BASELINE';
       } else if (fallback && fallback.rate === 0) {
         dailyUsageRate = 0;
+        historicalWeeklyConsumption = 0;
         confidence = 'HIGH';
         usageSource = fallback.source;
+        consumptionSource = 'DOCTRINE_BASELINE';
       } else {
         dailyUsageRate = 0;
+        historicalWeeklyConsumption = 0;
         confidence = 'LOW';
         usageSource = 'Insufficient usage data';
+        consumptionSource = 'DOCTRINE_BASELINE';
       }
     }
 
     dailyUsageRate = Math.round(dailyUsageRate * 1000) / 1000;
     const expectedWeeklyUsage = Math.round(dailyUsageRate * 7 * 100) / 100;
+    const expectedWeeklyDemand = historicalWeeklyConsumption;
 
     let daysToDepletion = Infinity;
     let depletionDate = null;
@@ -176,14 +199,25 @@ export async function calculateResourceForecasts(db, userId) {
       depletionDate = `${y}-${m}-${d}`;
     }
 
-    const projected7DayUsage = expectedWeeklyUsage;
-    const projected7DayRemaining = Math.max(0, Math.round((currentQty - projected7DayUsage) * 100) / 100);
-    const projectedDeficit = Math.max(0, Math.round((projected7DayUsage - currentQty) * 100) / 100);
+    const lowStockThreshold = item.lowStockThreshold !== undefined ? item.lowStockThreshold : (item.minStockLevel || 10);
+    const isLowStock = currentQty < lowStockThreshold;
 
-    let recommendedPurchaseQty = 0;
-    if (projectedDeficit > 0 || currentQty <= item.minStockLevel) {
-      const neededQty = Math.max(projectedDeficit, Math.max(0, (item.purchaseQty || item.minStockLevel * 2) - currentQty));
-      recommendedPurchaseQty = Math.max(item.purchaseQty || 1, Math.ceil(neededQty));
+    let requiredPurchaseQty = 0;
+    if (item.procurementMode !== 'DAILY_PURCHASE') {
+      requiredPurchaseQty = Math.max(0, Math.ceil(expectedWeeklyDemand - Math.max(0, currentQty)));
+    }
+    const isPurchaseRequired = requiredPurchaseQty > 0;
+
+    const unitPriceRupees = Number(item.estimatedPrice || 0);
+    const estimatedPurchaseCostRupees = Math.round(requiredPurchaseQty * unitPriceRupees * 100) / 100;
+
+    let recommendationReason = '';
+    if (isLowStock && isPurchaseRequired) {
+      recommendationReason = `Low stock (${currentQty} ${item.unit} remaining) and expected weekly consumption is ${expectedWeeklyDemand} ${item.unit}.`;
+    } else if (isPurchaseRequired) {
+      recommendationReason = `Buy ${requiredPurchaseQty} ${item.unit} this week to cover expected consumption (${expectedWeeklyDemand} ${item.unit}/week).`;
+    } else {
+      recommendationReason = `No purchase required this week — inventory covers expected consumption.`;
     }
 
     let forecastState = 'SUFFICIENT';
@@ -193,9 +227,9 @@ export async function calculateResourceForecasts(db, userId) {
       forecastState = 'PROJECTED DEPLETION';
     } else if (daysToDepletion <= 7) {
       forecastState = 'PROJECTED DEPLETION';
-    } else if (recommendedPurchaseQty > 0 || currentQty <= item.minStockLevel) {
+    } else if (isPurchaseRequired || isLowStock) {
       forecastState = 'PURCHASE RECOMMENDED';
-    } else if (currentQty <= item.minStockLevel * 1.5) {
+    } else if (currentQty <= lowStockThreshold * 1.5) {
       forecastState = 'LOW STOCK';
     } else if (currentQty >= required * 1.5 || daysToDepletion >= 30) {
       forecastState = 'SURPLUS';
@@ -204,15 +238,22 @@ export async function calculateResourceForecasts(db, userId) {
     const forecast = {
       dailyUsageRate,
       expectedWeeklyUsage,
+      historicalWeeklyConsumption,
+      expectedWeeklyDemand,
+      lowStockThreshold,
+      isLowStock,
+      isPurchaseRequired,
+      requiredPurchaseQty,
+      recommendedPurchaseQty: requiredPurchaseQty,
+      unitPriceRupees,
+      estimatedPurchaseCostRupees,
+      recommendationReason,
       daysToDepletion: daysToDepletion === Infinity ? null : Math.round(daysToDepletion * 10) / 10,
       depletionDate,
-      projected7DayUsage,
-      projected7DayRemaining,
-      projectedDeficit,
-      recommendedPurchaseQty,
       forecastState,
       confidence,
       usageSource,
+      consumptionSource,
     };
 
     return {

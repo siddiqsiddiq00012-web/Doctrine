@@ -16,6 +16,7 @@ import {
 } from '../services/adaptiveExecutionService.js';
 import { getUserUnifiedProgressOverview } from '../services/adherenceEngine.js';
 import { getStructuredIntelligence, INTELLIGENCE_MODES } from '../services/intelligenceService.js';
+import { generateDeterministicPlan } from '../services/planningEngine.js';
 
 const router = Router();
 
@@ -199,57 +200,39 @@ router.get(['/', ''], requireAuth, async (req, res) => {
       result.dataEngineering = { status: 'error', errorMessage: 'Unable to load Data Engineering status' };
     }
 
-    // 3. RESOURCE ALERTS & FORECASTS
+    // 3. DETERMINISTIC PLAN & SCHEDULE-DRIVEN RESOURCE ALERTS
     try {
-      const dbStocks = await db.select().from(resourceStock).where(eq(resourceStock.userId, userId));
-      const stockMap = new Map(dbStocks.map(s => [s.resourceId, s.currentQty]));
+      const plan = await generateDeterministicPlan(db, userId, todayDate, 7);
+      result.plan = plan;
 
-      const itemsNeeded = [];
-      const forecastAlerts = [];
-
-      (INITIAL_INVENTORY || []).forEach(item => {
-        const currentQty = stockMap.has(item.id) ? stockMap.get(item.id) : item.currentQty;
-        const required = item.purchaseQty || (item.minStockLevel ? item.minStockLevel * 2 : 1);
-        const needed = Math.max(0, required - currentQty);
-
-        if (needed > 0 || currentQty <= item.minStockLevel) {
-          itemsNeeded.push({
-            id: item.id,
-            name: item.name,
-            category: item.category,
-            currentQty,
-            required,
-            needed: needed > 0 ? needed : item.purchaseQty,
-            unit: item.unit
-          });
-        }
-
-        // Check 7-day projected depletion
-        const dailyRate = item.id === 'inv-1' ? 3 : item.id === 'inv-2' ? 0.5 : item.minStockLevel ? (item.minStockLevel / 7) : 0.1;
-        const daysRemaining = dailyRate > 0 ? currentQty / dailyRate : 999;
-        if (daysRemaining <= 7 || currentQty <= item.minStockLevel) {
-          forecastAlerts.push({
-            id: item.id,
-            name: item.name,
-            currentQty,
-            unit: item.unit,
-            daysRemaining: Math.round(daysRemaining * 10) / 10,
-            status: daysRemaining <= 3 ? 'PROJECTED DEPLETION' : 'PURCHASE RECOMMENDED'
-          });
-        }
-      });
+      const buyTodayItems = plan?.today?.buyToday || [];
+      const alreadyHandledItems = plan?.today?.alreadyHandled || [];
 
       result.resources = {
         status: 'ok',
-        needsAttentionCount: itemsNeeded.length,
-        itemsNeeded: itemsNeeded.slice(0, 3),
-        isFullyStocked: itemsNeeded.length === 0,
-        forecastAlertsCount: forecastAlerts.length,
-        forecastAlerts: forecastAlerts.slice(0, 3)
+        needsAttentionCount: buyTodayItems.length,
+        buyTodayCount: buyTodayItems.length,
+        alreadyHandledCount: alreadyHandledItems.length,
+        buyToday: buyTodayItems,
+        alreadyHandled: alreadyHandledItems,
+        isFullyStocked: buyTodayItems.length === 0,
+        itemsNeeded: buyTodayItems.map(item => ({
+          id: item.resourceId,
+          name: item.itemName,
+          category: item.category,
+          currentQty: item.currentQty,
+          needed: item.recommendedPurchaseQty,
+          unit: 'unit',
+          firstRequiredDate: item.firstRequiredDate,
+          firstAffectedTask: item.firstAffectedTask,
+          estimatedPriceRupees: item.estimatedPriceRupees,
+          isAffordable: item.isAffordable
+        }))
       };
     } catch (err) {
-      console.error('[Dashboard] Resources query failed:', err);
-      result.resources = { status: 'error', errorMessage: 'Unable to load resources status' };
+      console.error('[Dashboard] Planning Engine / Resources query failed:', err);
+      result.resources = { status: 'error', errorMessage: 'Unable to load deterministic planning status' };
+      result.plan = null;
     }
 
     // 4. STORED DAILY AI SUMMARY (No Auto-Generation)
@@ -816,6 +799,23 @@ router.get('/intelligence', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('[Dashboard Intelligence GET] Error:', err);
     res.status(500).json({ error: 'Failed to retrieve structured intelligence', details: err.message });
+  }
+});
+
+// GET /api/dashboard/plan — Deterministic Daily Action Plan & Horizon Forecast
+router.get('/plan', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const dateStr = (req.query.date && typeof req.query.date === 'string' && req.query.date.match(/^\d{4}-\d{2}-\d{2}$/))
+      ? req.query.date
+      : getTodayISO();
+    const horizonDays = req.query.horizon ? Math.min(30, Math.max(1, Number(req.query.horizon))) : 7;
+
+    const plan = await generateDeterministicPlan(db, userId, dateStr, horizonDays);
+    res.json({ success: true, plan });
+  } catch (err) {
+    console.error('[Dashboard Plan GET] Error:', err);
+    res.status(500).json({ error: 'Failed to generate deterministic plan', details: err.message });
   }
 });
 

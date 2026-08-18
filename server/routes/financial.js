@@ -5,6 +5,7 @@ import { cartItems, financialTransactions, resourceStock, resourceEvents } from 
 import { eq, and, asc, desc } from 'drizzle-orm';
 import { cryptoNative } from '../utils/crypto.js';
 import { calculateFinancialState } from '../services/financialEngine.js';
+import { cleanupCorruptedAutomatedCartItems } from '../services/purchaseIntelligenceService.js';
 import { INITIAL_INVENTORY } from '../../src/data/doctrineData.js';
 
 const router = Router();
@@ -82,6 +83,9 @@ router.get('/state', requireAuth, async (req, res) => {
 router.get('/cart', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
+
+    // Clean up corrupted automated cart entries on query
+    await cleanupCorruptedAutomatedCartItems(db, userId);
 
     const items = await db
       .select()

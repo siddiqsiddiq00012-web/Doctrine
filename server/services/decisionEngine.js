@@ -165,7 +165,40 @@ export function evaluateDecisions(context) {
     });
   }
 
-  // 7. INFORMATIONAL STABILITY (If no critical/high issues exist)
+  // 7. SCHEDULE-DRIVEN PLAN SIGNALS (BUY TODAY & PREPARATION)
+  const planToday = context.plan?.today || {};
+
+  (planToday.buyToday || []).forEach((buyItem) => {
+    decisions.push({
+      id: `dec_plan_buy_${buyItem.resourceId}`,
+      category: 'PURCHASE_RECOMMENDATION',
+      priority: buyItem.priority === 1 ? DECISION_PRIORITY_LEVELS.HIGH : DECISION_PRIORITY_LEVELS.MEDIUM,
+      severityScore: buyItem.priority === 1 ? 85 : 60,
+      title: `Buy Today: ${buyItem.itemName} (${buyItem.recommendedPurchaseQty} unit)`,
+      description: buyItem.reason,
+      evidence: `Required before ${buyItem.firstRequiredDate} for ${buyItem.firstAffectedTask}. Estimated cost: ₹${buyItem.estimatedPriceRupees || 0}.`,
+      action: buyItem.affordabilityNote,
+      automated: false,
+      targetId: buyItem.resourceId,
+    });
+  });
+
+  (planToday.prepare || []).forEach((prepItem) => {
+    decisions.push({
+      id: `dec_plan_prep_${prepItem.taskKey}`,
+      category: 'PREPARATION',
+      priority: DECISION_PRIORITY_LEVELS.MEDIUM,
+      severityScore: 65,
+      title: `Prepare: ${prepItem.title}`,
+      description: prepItem.action,
+      evidence: prepItem.reason,
+      action: prepItem.action,
+      automated: false,
+      targetId: prepItem.taskKey,
+    });
+  });
+
+  // 8. INFORMATIONAL STABILITY (If no critical/high issues exist)
   if (decisions.length === 0) {
     decisions.push({
       id: 'dec_info_stable',

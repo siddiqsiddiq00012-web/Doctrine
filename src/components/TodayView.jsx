@@ -176,29 +176,9 @@ export const TodayView = () => {
 
   const todayStr = getTodayStr();
 
-  const [rescheduleModalTask, setRescheduleModalTask] = useState(null);
-  const [targetDateInput, setTargetDateInput] = useState('');
-  const [rescheduleError, setRescheduleError] = useState(null);
-  const [rescheduleSubmitting, setRescheduleSubmitting] = useState(false);
-
   useEffect(() => {
     fetchAdaptation(todayStr);
   }, [todayStr, fetchAdaptation]);
-
-  const handleRescheduleConfirm = async () => {
-    if (!rescheduleModalTask || !targetDateInput) return;
-    setRescheduleSubmitting(true);
-    setRescheduleError(null);
-    try {
-      await rescheduleTask(rescheduleModalTask.id, targetDateInput);
-      setRescheduleModalTask(null);
-      setTargetDateInput('');
-    } catch (err) {
-      setRescheduleError(err.message || 'Task could not be rescheduled. It may already be completed or max carryover depth reached.');
-    } finally {
-      setRescheduleSubmitting(false);
-    }
-  };
 
   const [nowMinutes, setNowMinutes] = useState(() => {
     const d = new Date();
@@ -288,53 +268,7 @@ export const TodayView = () => {
         </div>
       </div>
 
-      {/* RESCHEDULE TASK MODAL */}
-      {rescheduleModalTask && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1000, padding: '20px'
-        }}>
-          <div className="card" style={{ maxWidth: '420px', width: '100%', padding: '24px', background: 'var(--bg-card)' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>Reschedule / Defer Task</h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-              Defer <strong>{rescheduleModalTask.activity || rescheduleModalTask.taskKey}</strong> to a future target date. The origin execution will be marked SKIPPED with a carryover link.
-            </p>
 
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Select Target Date</label>
-            <input
-              type="date"
-              value={targetDateInput}
-              onChange={(e) => setTargetDateInput(e.target.value)}
-              className="form-input"
-              style={{ width: '100%', padding: '8px 12px', marginBottom: '16px' }}
-            />
-
-            {rescheduleError && (
-              <div style={{ fontSize: '12px', color: '#EF4444', marginBottom: '12px', padding: '8px', borderRadius: '6px', background: '#FEE2E2' }}>
-                ⚠ {rescheduleError}
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button
-                className="btn btn-secondary"
-                onClick={() => setRescheduleModalTask(null)}
-                disabled={rescheduleSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleRescheduleConfirm}
-                disabled={rescheduleSubmitting || !targetDateInput}
-              >
-                {rescheduleSubmitting ? 'Rescheduling...' : 'Confirm Reschedule'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* HERO "WHAT NOW?" EXECUTION COMMAND SURFACE */}
       {currentBlock && (
@@ -484,26 +418,7 @@ export const TodayView = () => {
                         )}
                       </div>
 
-                      {!isCompleted && (
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setRescheduleModalTask(block);
-                            // Default target date to tomorrow
-                            const nextD = new Date(todayStr + 'T00:00:00');
-                            nextD.setDate(nextD.getDate() + 1);
-                            const y = nextD.getFullYear();
-                            const m = String(nextD.getMonth() + 1).padStart(2, '0');
-                            const d = String(nextD.getDate()).padStart(2, '0');
-                            setTargetDateInput(`${y}-${m}-${d}`);
-                          }}
-                          style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '4px' }}
-                        >
-                          Reschedule / Defer →
-                        </button>
-                      )}
+
                     </div>
 
                     {/* FEATURE 12: WHY THIS MATTERS CONTEXTUAL SNIPPET */}

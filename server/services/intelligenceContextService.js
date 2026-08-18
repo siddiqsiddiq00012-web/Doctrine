@@ -20,6 +20,7 @@ import {
 import { calculateResourceForecasts } from './resourceForecastService.js';
 import { calculateFailurePatterns } from './failurePatternService.js';
 import { calculateFinancialState } from './financialEngine.js';
+import { generateDeterministicPlan } from './planningEngine.js';
 
 /**
  * DOCTRINE INTELLIGENCE CONTEXT SERVICE
@@ -142,11 +143,20 @@ export async function buildIntelligenceContext(dbClient = db, userId, options = 
     // Graceful failure pattern retrieval
   }
 
+  // 11. DETERMINISTIC SCHEDULE-DRIVEN PLAN
+  let plan = null;
+  try {
+    plan = await generateDeterministicPlan(dbClient, userId, todayStr, 7);
+  } catch (err) {
+    // Graceful plan retrieval
+  }
+
   // Bounded, validated context output
   return {
     userId,
     generatedAt: new Date().toISOString(),
     todayDate: todayStr,
+    plan,
     execution: {
       capacityMode,
       todayAdherence,

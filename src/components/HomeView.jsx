@@ -175,44 +175,7 @@ export const HomeView = () => {
         </div>
       </div>
 
-      {/* ADAPTIVE EXECUTION STATUS CARD */}
-      <div className="card interactive" onClick={() => setActiveTab('today')} style={{
-        background: 'var(--bg-card)',
-        borderColor: 'var(--accent-purple)',
-        borderLeft: '4px solid var(--accent-purple)',
-        padding: '16px 20px',
-        marginBottom: '16px'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent-purple)', textTransform: 'uppercase', letterSpacing: '0.8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Sparkles size={14} /> ADAPTIVE EXECUTION STATUS
-            </div>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
-              Execution Mode: <strong style={{ color: 'var(--accent-purple)' }}>{(adaptationState?.capacityMode || 'NORMAL').replace('_', ' ')}</strong>
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              {adaptationState && adaptationState.capacityMode !== 'NORMAL' ? (
-                <>
-                  {adaptationState.availableMinutes !== null ? `${adaptationState.availableMinutes} min available` : 'Plan Compressed'}
-                  {' • '}Essential Tasks: <strong>{adaptationState.adaptedPlan?.essentialTaskKeys?.length || 0}</strong>
-                  {' • '}Adapted Compliance: <strong style={{ color: 'var(--accent-purple)' }}>{adaptationState.adaptedCompliance || 0}%</strong>
-                </>
-              ) : (
-                'Operating under normal Doctrine plan without capacity constraints.'
-              )}
-            </div>
-          </div>
 
-          <button
-            className="btn btn-secondary"
-            onClick={(e) => { e.stopPropagation(); setActiveTab('today'); }}
-            style={{ fontSize: '12px', padding: '6px 12px', fontWeight: 600 }}
-          >
-            Configure Capacity →
-          </button>
-        </div>
-      </div>
 
       {/* DECISIONS & RECOMMENDATIONS CARD */}
       {intelligenceData && (
@@ -477,41 +440,202 @@ export const HomeView = () => {
           )}
         </div>
 
-        {/* RESOURCE ALERTS CARD */}
+        {/* WHAT TO BUY THIS WEEK — DETERMINISTIC PURCHASE PLAN CARD */}
         <div className="card" style={{ marginBottom: 0, padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Resource Intelligence
+            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <ShoppingBag size={16} color="var(--accent-purple)" /> What to Buy This Week
             </span>
-            <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('inventory')} style={{ fontSize: '12px', color: 'var(--accent-blue)' }}>
-              Resources →
+            <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('cart')} style={{ fontSize: '12px', color: 'var(--accent-blue)' }}>
+              Cart →
             </button>
           </div>
 
-          {resources.status === 'error' ? (
-            <div style={{ padding: '16px 0', color: '#EF4444', fontSize: '13px' }}>
-              ⚠️ Unable to load resources status
-            </div>
-          ) : resources.isFullyStocked ? (
-            <div style={{ padding: '16px 0', color: 'var(--accent-green)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <CheckCircle2 size={16} /> All Doctrine resources are fully stocked
-            </div>
-          ) : (
-            <div>
-              <div style={{ fontSize: '12px', color: 'var(--accent-amber)', fontWeight: 600, marginBottom: '8px' }}>
-                ⚠️ {resources.needsAttentionCount} Item(s) Need Purchase/Restock
-              </div>
+          {(() => {
+            const buyThisWeekList = dashboardData?.plan?.today?.buyThisWeek || dashboardData?.plan?.today?.buyToday || dashboardData?.resources?.buyToday || [];
+            const dailyPurchasesList = dashboardData?.plan?.today?.dailyPurchases || [];
+            const alreadyHandledList = dashboardData?.plan?.today?.alreadyHandled || dashboardData?.resources?.alreadyHandled || [];
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {(resources.itemsNeeded || []).map((item) => (
-                  <div key={item.id} style={{ fontSize: '12px', color: 'var(--text-primary)', padding: '6px 8px', background: 'var(--bg-app)', borderRadius: '6px', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>{item.name}</span>
-                    <strong style={{ color: 'var(--accent-amber)' }}>Need {item.needed} {item.unit}</strong>
+            if (resources.status === 'error') {
+              return (
+                <div style={{ padding: '12px 0', color: '#EF4444', fontSize: '13px' }}>
+                  ⚠️ Unable to load purchase recommendations
+                </div>
+              );
+            }
+
+            if (buyThisWeekList.length === 0 && dailyPurchasesList.length === 0 && alreadyHandledList.length === 0) {
+              return (
+                <div style={{ padding: '14px 0', color: 'var(--accent-green)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <CheckCircle2 size={16} /> No purchase required this week — inventory covers expected consumption
+                </div>
+              );
+            }
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {/* BUY THIS WEEK RECOMMENDATIONS */}
+                {buyThisWeekList.length > 0 ? (
+                  buyThisWeekList.map((item) => (
+                    <div
+                      key={item.resourceId}
+                      style={{
+                        padding: '12px',
+                        background: 'var(--bg-app)',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                          <strong style={{ fontSize: '14px', color: 'var(--text-primary)' }}>
+                            {item.itemName} — {item.requiredPurchaseQty || item.recommendedPurchaseQty} {item.unit || 'units'}
+                          </strong>
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '2px' }}>
+                            Expected weekly consumption: <strong>{item.expectedWeeklyDemand || 0} {item.unit}</strong> • Current stock: <strong>{item.currentQty} {item.unit}</strong>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                          {item.isLowStock ? (
+                            <span className="badge badge-amber" style={{ fontSize: '10px', whiteSpace: 'nowrap' }}>
+                              ⚠️ LOW STOCK
+                            </span>
+                          ) : (
+                            <span className="badge badge-purple" style={{ fontSize: '10px', whiteSpace: 'nowrap' }}>
+                              Stock Normal
+                            </span>
+                          )}
+
+                          <span className={`badge ${item.isAffordable ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: '10px', whiteSpace: 'nowrap' }}>
+                            {item.isAffordable ? '✓ Affordable' : 'Exceeds Plan'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                        {item.reason}
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', paddingTop: '6px', borderTop: '1px solid var(--border-color)' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          Est. Cost: ₹{item.estimatedPriceRupees || 0}
+                        </span>
+
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              const res = await fetch('/api/financial/cart', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'include',
+                                body: JSON.stringify({
+                                  itemName: item.itemName,
+                                  resourceId: item.resourceId,
+                                  quantity: item.requiredPurchaseQty || item.recommendedPurchaseQty,
+                                  estimatedPricePaise: item.estimatedPricePaise || 0,
+                                  priority: item.priority || 1
+                                })
+                              });
+                              if (res.ok) {
+                                fetchDashboardData();
+                              }
+                            } catch (err) {
+                              console.error('Add to cart failed:', err);
+                            }
+                          }}
+                          style={{ fontSize: '11px', padding: '4px 10px' }}
+                        >
+                          + Add to Cart
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ padding: '8px 0', color: 'var(--accent-green)', fontSize: '12px', fontWeight: 600 }}>
+                    ✓ No stock-managed replenishment needed this week
                   </div>
-                ))}
+                )}
+
+                {/* DAILY PURCHASES SECTION */}
+                {dailyPurchasesList.length > 0 && (
+                  <div style={{ marginTop: '6px', paddingTop: '8px', borderTop: '1px dashed var(--border-color)' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '6px' }}>
+                      DAILY PURCHASES (SCHEDULE DERIVED)
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {dailyPurchasesList.map((dItem) => (
+                        <div
+                          key={dItem.resourceId}
+                          style={{
+                            padding: '8px 10px',
+                            borderRadius: '6px',
+                            background: 'var(--bg-app)',
+                            fontSize: '12px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}
+                        >
+                          <div>
+                            <strong style={{ color: 'var(--text-primary)' }}>{dItem.itemName}</strong>
+                            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block' }}>
+                              {dItem.reason}
+                            </span>
+                          </div>
+                          <span className="badge badge-purple" style={{ fontSize: '10px' }}>
+                            Daily Purchase
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ALREADY HANDLED SECTION */}
+                {alreadyHandledList.length > 0 && (
+                  <div style={{ marginTop: '6px', paddingTop: '8px', borderTop: '1px dashed var(--border-color)' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '6px' }}>
+                      ALREADY HANDLED
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {alreadyHandledList.map((hItem) => (
+                        <div
+                          key={hItem.resourceId}
+                          onClick={() => setActiveTab('cart')}
+                          style={{
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            background: 'var(--bg-app)',
+                            fontSize: '12px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+                            {hItem.itemName} — {hItem.requiredPurchaseQty || hItem.recommendedPurchaseQty} {hItem.unit || 'units'}
+                          </span>
+                          <span className="badge badge-purple" style={{ fontSize: '10px' }}>
+                            ✓ In Cart
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
 
       </div>
