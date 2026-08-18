@@ -14,7 +14,6 @@ import { SettingsView } from './components/SettingsView';
 import { BudgetView } from './components/BudgetView';
 import { CartView } from './components/CartView';
 import { GoalsView } from './components/GoalsView';
-import { LoginView } from './components/LoginView';
 import { Navbar } from './components/Navbar';
 import { OverflowMenu } from './components/OverflowMenu';
 import { ShieldCheck, User as UserIcon } from 'lucide-react';
@@ -38,14 +37,7 @@ const MainContent = () => {
     );
   }
 
-  const isLocalDev = Boolean(
-    import.meta.env.DEV ||
-    (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-  );
-
-  if (!user && !isLocalDev) {
-    return <LoginView />;
-  }
+  // Authentication is intentionally disabled during the current Doctrine development phase.
 
   const renderTab = () => {
     switch (activeTab) {
